@@ -33,9 +33,9 @@ def criar_popup_premium(
 
     html = f"""
     <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:240px;max-height:75vh;overflow-y:auto;display:flex;flex-direction:column;padding:5px;">
-        <h4 style="color:#2c3e50;margin:0 0 6px 0;border-bottom:2px solid #3498db;padding-bottom:8px;font-size:15px;flex-shrink:0;">
+        <h3 style="color:#ffffff !important;font-size:16px;font-weight:800;text-transform:uppercase;margin-bottom:5px;margin-top:0;text-shadow:0 2px 4px rgba(0,0,0,0.5);">
             {nome_local}
-        </h4>
+        </h3>
         <div style="font-size:12px;color:#7f8c8d;margin-bottom:10px;">
             <strong>Município:</strong> {municipio}<br>
             <strong>Endereço:</strong> {endereco_completo}
