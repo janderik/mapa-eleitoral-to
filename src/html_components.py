@@ -7,6 +7,7 @@ def _gerar_bloco_cargo(
     cargo_titulo: str,
     cor_barra: str,
     limite: int = None,
+    abrir: bool = False,
 ) -> str:
     df_cargo = grupo[grupo["DS_CARGO"] == cargo_nome].sort_values("QT_VOTOS", ascending=False)
     if df_cargo.empty:
@@ -28,9 +29,12 @@ def _gerar_bloco_cargo(
             "</div>"
             "</div>"
         )
+    open_attr = " open" if abrir else ""
     return (
-        f'<div style="background:#222;color:{cor_barra};padding:4px;text-align:center;font-size:11px;font-weight:bold;margin-top:5px;">🗳️ {cargo_titulo}</div>'
-        f'<div style="max-height:200px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>'
+        f'<details{open_attr} style="margin-bottom:6px;background:#1a1a1a;border:1px solid #333;border-radius:5px;">'
+        f'<summary style="background:#222;color:{cor_barra};padding:10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;">🗳️ {cargo_titulo}</summary>'
+        f'<div style="max-height:250px;overflow-y:auto;padding:10px;">{linhas}</div>'
+        f"</details>"
     )
 
 
@@ -40,17 +44,17 @@ def _gerar_era(
     cor_barra: str,
     rotulo: str,
     limite: int = None,
+    abrir_primeiro: bool = False,
 ) -> str:
     blocos = ""
-    for cargo_nome, cargo_titulo in cargos:
-        blocos += _gerar_bloco_cargo(grupo, cargo_nome, cargo_titulo, cor_barra, limite)
+    for i, (cargo_nome, cargo_titulo) in enumerate(cargos):
+        abrir = abrir_primeiro and i == 0
+        blocos += _gerar_bloco_cargo(grupo, cargo_nome, cargo_titulo, cor_barra, limite, abrir)
     if not blocos:
         return ""
     return (
-        f'<div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">'
-        f'<div style="font-size:12px;color:#aaa;margin-bottom:6px;font-weight:600;">{rotulo}</div>'
+        f'<div style="color:#aaa;font-size:11px;margin-bottom:5px;margin-top:10px;border-bottom:1px solid #444;padding-bottom:3px;">{rotulo}</div>'
         f"{blocos}"
-        f"</div>"
     )
 
 
@@ -60,6 +64,7 @@ def gerar_html_candidatos(grupo_2024: pd.DataFrame, grupo_2022: pd.DataFrame) ->
         [("PREFEITO", "PREFEITO"), ("VEREADOR", "VEREADORES (LISTA COMPLETA)")],
         cor_barra="#00ffcc",
         rotulo="🟢 ELEIÇÕES MUNICIPAIS (2024)",
+        abrir_primeiro=True,
     )
     html_2022 = _gerar_era(
         grupo_2022,
