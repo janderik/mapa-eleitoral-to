@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+*.xlsx
+data/perfil_eleitor_secao_ATUAL_TO.csv
+data/votacao_secao_2024_TO.csv
