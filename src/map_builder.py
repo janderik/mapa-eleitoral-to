@@ -24,8 +24,7 @@ def criar_popup_premium(
     for genero, qtd in valores_genero.items():
         cor = mapeamento_cores.get(genero, "#607d8b")
         itens += f"""
-        <div style="margin:6px 0;"><strong>{genero.title()}:</strong>
-        <span style="color:{cor};font-weight:bold;">{int(qtd):,}</span></div>"""
+        <div style="margin:4px 0;font-size:13px;font-weight:bold;color:#dddddd;">{genero.title()}: <span style="color:{cor};">{int(qtd):,}</span></div>"""
 
     endereco_completo = f"{endereco}, {bairro}" if bairro else endereco
     if cep:
