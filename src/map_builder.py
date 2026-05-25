@@ -87,11 +87,18 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             total=row["TOTAL"],
             html_candidatos=row.get("HTML_CANDIDATOS", ""),
         )
-        cor_icone = "red" if row.get("IS_VOLATIL") else "blue"
+        if row.get("IS_VOLATIL"):
+            icone = folium.DivIcon(
+                html='<div class="marcador-batalha"></div>',
+                icon_size=(18, 18),
+                icon_anchor=(9, 9),
+            )
+        else:
+            icone = folium.Icon(color="blue", icon="info-sign")
         folium.Marker(
             location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
             popup=Popup(popup, max_width=380),
-            icon=folium.Icon(color=cor_icone, icon="info-sign"),
+            icon=icone,
             tooltip=f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})",
         ).add_to(fg)
 
@@ -134,6 +141,26 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         volatile_lookup[chave] = bool(row.get("IS_VOLATIL"))
 
     qtd_volateis = int(df['IS_VOLATIL'].sum())
+
+    html_estilo = """
+    <style>
+    @keyframes pulso-neon {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    }
+    .marcador-batalha {
+        width: 18px;
+        height: 18px;
+        background-color: #ff0033;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 15px 5px rgba(255, 0, 51, 0.8);
+        animation: pulso-neon 2s infinite;
+    }
+    </style>
+    """
+    mapa.get_root().html.add_child(Element(html_estilo))
 
     html_sidebar = f"""
     <style>
@@ -275,6 +302,25 @@ function getLocKeyFromLayer(layer) {{
     return muniName + '|' + locName;
 }}
 
+function getDefaultIcon(key) {{
+    if (volatileLookup[key]) {{
+        return L.divIcon({{
+            className: '',
+            html: '<div class="marcador-batalha"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        }});
+    }}
+    return L.icon({{
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    }});
+}}
+
 document.getElementById('search-city').addEventListener('change', function(e) {{
     var cityName = e.target.value.toUpperCase().trim();
     if (cityCoords[cityName]) {{
@@ -324,15 +370,7 @@ function resetFilter() {{
         if (!layer.getLatLng || !layer.setIcon) return;
         layer.setOpacity(1.0);
         var key = getLocKeyFromLayer(layer);
-        var isVolatil = volatileLookup[key] || false;
-        layer.setIcon(L.icon({{
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + (isVolatil ? 'red' : 'blue') + '.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        }}));
+        layer.setIcon(getDefaultIcon(key));
     }});
     document.getElementById('search-candidate').value = '';
 }}
@@ -370,27 +408,13 @@ function toggleVolatile() {{
         if (isActive) {{
             if (isVolatil) {{
                 layer.setOpacity(1.0);
-                layer.setIcon(L.icon({{
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                }}));
+                layer.setIcon(getDefaultIcon(key));
             }} else {{
                 layer.setOpacity(0.1);
             }}
         }} else {{
             layer.setOpacity(1.0);
-            layer.setIcon(L.icon({{
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + (isVolatil ? 'red' : 'blue') + '.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            }}));
+            layer.setIcon(getDefaultIcon(key));
         }}
     }});
 }}
