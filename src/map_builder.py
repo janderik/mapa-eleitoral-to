@@ -183,6 +183,25 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         opacity: 1.0 !important;
         animation: pulso-sombra 2s infinite;
     }
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #1a1a24;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #444;
+        border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #00ffcc;
+    }
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: #444 #1a1a24;
+    }
     </style>
     """
     mapa.get_root().html.add_child(Element(html_estilo))
