@@ -61,63 +61,41 @@ def processar_perfil() -> pd.DataFrame:
     return df_pivot
 
 
-def gerar_html_por_cargo(df_local: pd.DataFrame, cargo: str, limite: int = None) -> str:
-    grupo = df_local[df_local["DS_CARGO"] == cargo]
-    if grupo.empty:
-        return '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico para este cargo</div>'
-    grupo = grupo.sort_values("QT_VOTOS", ascending=False)
-    if limite is not None:
-        grupo = grupo.head(limite)
-    total_local = grupo["QT_VOTOS"].sum()
-    linhas = ""
-    for _, r in grupo.iterrows():
-        pct = (r["QT_VOTOS"] / total_local) * 100 if total_local > 0 else 0
-        linhas += f"""
-        <div style="margin:4px 0;">
-            <div style="display:flex;justify-content:space-between;font-size:11px;">
-                <span style="color:#e0e0e0;font-weight:500;">{r['NM_VOTAVEL']}</span>
-                <span style="color:#00ffcc;font-weight:600;">{int(r['QT_VOTOS']):,}</span>
-            </div>
-            <div style="background:#333;border-radius:3px;height:5px;margin-top:2px;">
-                <div style="width:{pct:.1f}%;background:#00ffcc;height:5px;border-radius:3px;transition:width .3s;"></div>
-            </div>
-        </div>"""
-    return linhas
+def gerar_html_candidatos(grupo_local: pd.DataFrame) -> str:
+    if grupo_local.empty:
+        return ""
+    html_blocos = []
+    for cargo in ["Prefeito", "Vereador"]:
+        df_cargo = grupo_local[grupo_local['DS_CARGO'] == cargo].sort_values("QT_VOTOS", ascending=False)
+        if df_cargo.empty:
+            continue
+        if cargo == "Vereador":
+            df_cargo = df_cargo.head(10)
+        total_cargo = df_cargo["QT_VOTOS"].sum()
+        linhas = ""
+        for _, r in df_cargo.iterrows():
+            pct = (r["QT_VOTOS"] / total_cargo) * 100 if total_cargo > 0 else 0
+            linhas += f'''<div style="margin:4px 0;"><div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#e0e0e0;font-weight:500;">{r['NM_VOTAVEL']}</span><span style="color:#00ffcc;font-weight:600;">{int(r['QT_VOTOS']):,}</span></div><div style="background:#333;border-radius:3px;height:5px;margin-top:2px;"><div style="width:{pct:.1f}%;background:#00ffcc;height:5px;border-radius:3px;"></div></div></div>'''
+        titulo = "PREFEITO" if cargo == "Prefeito" else "VEREADOR (TOP 10)"
+        html_blocos.append(f'''<div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;margin-top:5px;">🗳️ {titulo}</div><div style="max-height:120px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>''')
+    return "".join(html_blocos)
 
 
-def processar_votacao() -> pd.DataFrame:
-    print(f"Lendo votação 2024: {Config.VOTACAO_ENTRADA}")
-    df = pd.read_csv(Config.VOTACAO_ENTRADA, sep=";", encoding="latin1")
-    print(f"  -> {len(df)} linhas brutas")
+def processar_votacao(df_principal: pd.DataFrame) -> pd.DataFrame:
+    print("Lendo votação 2024...")
+    df_votos = pd.read_csv(Config.VOTACAO_ENTRADA, sep=";", encoding="latin1")
+    df_votos = df_votos[df_votos["DS_CARGO"].isin(["Prefeito", "Vereador"])]
 
-    df = df[df["DS_CARGO"].isin(["Prefeito", "Vereador"])]
-    print(f"  -> {len(df)} linhas após filtro Prefeito+Vereador")
+    df_votos['NM_MUNICIPIO'] = df_votos['NM_MUNICIPIO'].astype(str).str.strip().str.upper()
+    df_votos['NM_LOCAL_VOTACAO'] = df_votos['NM_LOCAL_VOTACAO'].astype(str).str.strip().str.upper()
+    df_principal['NM_MUNICIPIO'] = df_principal['NM_MUNICIPIO'].astype(str).str.strip().str.upper()
+    df_principal['NM_LOCAL_VOTACAO'] = df_principal['NM_LOCAL_VOTACAO'].astype(str).str.strip().str.upper()
 
-    votos_agrupados = df.groupby(
-        ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "NM_VOTAVEL", "DS_CARGO"],
-        as_index=False,
-    )["QT_VOTOS"].sum()
-
+    votos_agrupados = df_votos.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_CARGO", "NM_VOTAVEL"], as_index=False)["QT_VOTOS"].sum()
     historico = []
     for (municipio, local), grupo in votos_agrupados.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]):
-        html_prefeito = gerar_html_por_cargo(grupo, "Prefeito")
-        html_vereador = gerar_html_por_cargo(grupo, "Vereador", limite=10)
-        html_candidatos = f"""
-        <div style="width:100%;margin-top:10px;">
-            <div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ PREFEITO</div>
-            <div style="max-height:100px;overflow-y:auto;background:#1a1a1a;padding:5px;margin-bottom:5px;">{html_prefeito}</div>
-            <div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ TOP 10 VEREADORES</div>
-            <div style="max-height:100px;overflow-y:auto;background:#1a1a1a;padding:5px;">{html_vereador}</div>
-        </div>"""
-        historico.append({
-            "NM_MUNICIPIO": municipio,
-            "NM_LOCAL_VOTACAO": local,
-            "HTML_CANDIDATOS": html_candidatos,
-        })
-
-    df_historico = pd.DataFrame(historico)
-    print(f"  -> {len(df_historico)} locais com histórico de votação")
-    return df_historico
+        historico.append({"NM_MUNICIPIO": municipio, "NM_LOCAL_VOTACAO": local, "HTML_CANDIDATOS": gerar_html_candidatos(grupo)})
+    return pd.DataFrame(historico)
 
 
 def mergedf(cache: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
@@ -179,9 +157,10 @@ def criar_popup_premium(
         <div style="padding:10px;background:linear-gradient(135deg,#f5f7fa,#e4e8ec);border-radius:6px;text-align:center;">
             <span style="font-size:17px;color:#27ae60;font-weight:bold;">TOTAL: {int(total):,}</span>
         </div>
-        {html_candidatos}
+        <hr style="margin:5px 0;border:1px solid #ccc;">
+        {html_candidatos if html_candidatos else '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico de votação nominal</div>'}
     </div>"""
-    return Html(html, script=False)
+    return Html(html, script=True)
 
 
 def criar_mapa(df: pd.DataFrame) -> folium.Map:
@@ -367,11 +346,7 @@ def main():
     perfil = processar_perfil()
     df = mergedf(cache, perfil)
 
-    df_historico = processar_votacao()
-
-    for chave in ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]:
-        df[chave] = df[chave].astype(str).str.strip().str.upper()
-        df_historico[chave] = df_historico[chave].astype(str).str.strip().str.upper()
+    df_historico = processar_votacao(df)
 
     df = df.merge(df_historico, on=["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"], how="left")
     df["HTML_CANDIDATOS"] = df["HTML_CANDIDATOS"].fillna("")
