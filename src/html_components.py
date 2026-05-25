@@ -19,7 +19,7 @@ def _gerar_bloco_cargo(
     for _, r in df_cargo.iterrows():
         pct = (r["QT_VOTOS"] / total_cargo) * 100 if total_cargo > 0 else 0
         linhas += (
-            '<div style="margin:4px 0;">'
+            '<div style="margin:3px 0;">'
             '<div style="display:flex;justify-content:space-between;font-size:11px;">'
             f'<span style="color:#e0e0e0;font-weight:500;">{r["NM_VOTAVEL"]}</span>'
             f'<span style="color:{cor_barra};font-weight:600;">{int(r["QT_VOTOS"]):,}</span>'
@@ -46,8 +46,8 @@ def _gerar_bloco_cargo(
     open_attr = " open" if abrir else ""
     return html_alerta + (
         f'<details{open_attr} style="margin-bottom:6px;background:#1a1a1a;border:1px solid #333;border-radius:5px;">'
-        f'<summary style="background:#222;color:{cor_barra};padding:10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;">🗳️ {cargo_titulo}</summary>'
-        f'<div style="max-height:250px;overflow-y:auto;padding:10px;">{linhas}</div>'
+        f'<summary style="background:#222;color:{cor_barra};padding:8px 10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;position:sticky;top:0;z-index:10;">🗳️ {cargo_titulo}</summary>'
+        f'<div style="max-height:40vh;overflow-y:auto;padding:6px;">{linhas}</div>'
         f"</details>"
     )
 
@@ -67,7 +67,7 @@ def _gerar_era(
     if not blocos:
         return ""
     return (
-        f'<div style="color:#aaa;font-size:11px;margin-bottom:5px;margin-top:10px;border-bottom:1px solid #444;padding-bottom:3px;">{rotulo}</div>'
+        f'<div style="color:#aaa;font-size:11px;margin-bottom:5px;margin-top:10px;border-bottom:1px solid #444;padding-bottom:3px;position:sticky;top:0;z-index:10;background:#1a1a1a;">{rotulo}</div>'
         f"{blocos}"
     )
 

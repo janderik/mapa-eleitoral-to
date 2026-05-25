@@ -32,8 +32,8 @@ def criar_popup_premium(
         endereco_completo += f" - CEP {cep}"
 
     html = f"""
-    <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:240px;padding:5px;">
-        <h4 style="color:#2c3e50;margin:0 0 6px 0;border-bottom:2px solid #3498db;padding-bottom:8px;font-size:15px;">
+    <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:240px;max-height:75vh;overflow-y:auto;display:flex;flex-direction:column;padding:5px;">
+        <h4 style="color:#2c3e50;margin:0 0 6px 0;border-bottom:2px solid #3498db;padding-bottom:8px;font-size:15px;flex-shrink:0;">
             {nome_local}
         </h4>
         <div style="font-size:12px;color:#7f8c8d;margin-bottom:10px;">
