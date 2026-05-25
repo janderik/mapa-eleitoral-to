@@ -29,8 +29,22 @@ def _gerar_bloco_cargo(
             "</div>"
             "</div>"
         )
+    html_alerta = ""
+    if cargo_nome == "PREFEITO" and len(df_cargo) >= 2:
+        votos_1o = df_cargo.iloc[0]["QT_VOTOS"]
+        votos_2o = df_cargo.iloc[1]["QT_VOTOS"]
+        diferenca_pct = (votos_1o - votos_2o) / total_cargo if total_cargo > 0 else 1
+        if diferenca_pct <= 0.05:
+            html_alerta = (
+                '<div style="background:rgba(255,51,51,0.15);border:1px solid #ff3333;color:#ff4d4d;padding:8px;'
+                'border-radius:5px;margin-bottom:10px;text-align:center;font-size:11px;font-weight:bold;'
+                'box-shadow:0 0 8px rgba(255,51,51,0.3);">'
+                '⚠️ ZONA DE ALTA VOLATILIDADE (< 5% DE MARGEM)'
+                '<br><span style="font-size:9px;color:#ccc;font-weight:normal;">'
+                'Território vulnerável a virada de votos.</span></div>'
+            )
     open_attr = " open" if abrir else ""
-    return (
+    return html_alerta + (
         f'<details{open_attr} style="margin-bottom:6px;background:#1a1a1a;border:1px solid #333;border-radius:5px;">'
         f'<summary style="background:#222;color:{cor_barra};padding:10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;">🗳️ {cargo_titulo}</summary>'
         f'<div style="max-height:250px;overflow-y:auto;padding:10px;">{linhas}</div>'
@@ -78,7 +92,18 @@ def gerar_html_candidatos(grupo_2024: pd.DataFrame, grupo_2022: pd.DataFrame) ->
         rotulo="🔵 ELEIÇÕES GERAIS (2022)",
         limite=3,
     )
-    return (html_2024 or "") + (html_2022 or "")
+    resultado = (html_2024 or "") + (html_2022 or "")
+    if resultado:
+        resultado += (
+            '<div style="margin-top:10px;border-top:1px solid #333;padding-top:10px;">'
+            '<button style="width:100%;background:#2980b9;color:#fff;border:1px solid #3498db;padding:8px;'
+            'border-radius:4px;font-weight:bold;cursor:pointer;font-size:11px;"'
+            ' onclick="alert(\'Módulo de Inteligência Econômica: Para mapear as lideranças deste setor, '
+            'consulte a Matriz de CNPJs (Excel) integrada à plataforma.\')">'
+            "📥 CONSULTAR MATRIZ DE LIDERANÇAS (OFFLINE)"
+            "</button></div>"
+        )
+    return resultado
 
 
 def gerar_painel_top10(df, map_var: str) -> str:
