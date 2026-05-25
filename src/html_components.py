@@ -1,34 +1,79 @@
 import pandas as pd
 
-def gerar_html_candidatos(grupo_local: pd.DataFrame) -> str:
-    if grupo_local.empty:
+
+def _gerar_bloco_cargo(
+    grupo: pd.DataFrame,
+    cargo_nome: str,
+    cargo_titulo: str,
+    cor_barra: str,
+    limite: int = None,
+) -> str:
+    df_cargo = grupo[grupo["DS_CARGO"] == cargo_nome].sort_values("QT_VOTOS", ascending=False)
+    if df_cargo.empty:
         return ""
-    html_blocos = []
-    for cargo in ["Prefeito", "Vereador"]:
-        df_cargo = grupo_local[grupo_local["DS_CARGO"] == cargo].sort_values("QT_VOTOS", ascending=False)
-        if df_cargo.empty:
-            continue
-        total_cargo = df_cargo["QT_VOTOS"].sum()
-        linhas = ""
-        for _, r in df_cargo.iterrows():
-            pct = (r["QT_VOTOS"] / total_cargo) * 100 if total_cargo > 0 else 0
-            linhas += (
-                '<div style="margin:4px 0;">'
-                '<div style="display:flex;justify-content:space-between;font-size:11px;">'
-                f'<span style="color:#e0e0e0;font-weight:500;">{r["NM_VOTAVEL"]}</span>'
-                f'<span style="color:#00ffcc;font-weight:600;">{int(r["QT_VOTOS"]):,}</span>'
-                "</div>"
-                '<div style="background:#333;border-radius:3px;height:5px;margin-top:2px;">'
-                f'<div style="width:{pct:.1f}%;background:#00ffcc;height:5px;border-radius:3px;"></div>'
-                "</div>"
-                "</div>"
-            )
-        titulo = "PREFEITO" if cargo == "Prefeito" else "VEREADORES (LISTA COMPLETA)"
-        html_blocos.append(
-            f'<div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;margin-top:5px;">🗳️ {titulo}</div>'
-            f'<div style="max-height:200px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>'
+    if limite is not None:
+        df_cargo = df_cargo.head(limite)
+    total_cargo = df_cargo["QT_VOTOS"].sum()
+    linhas = ""
+    for _, r in df_cargo.iterrows():
+        pct = (r["QT_VOTOS"] / total_cargo) * 100 if total_cargo > 0 else 0
+        linhas += (
+            '<div style="margin:4px 0;">'
+            '<div style="display:flex;justify-content:space-between;font-size:11px;">'
+            f'<span style="color:#e0e0e0;font-weight:500;">{r["NM_VOTAVEL"]}</span>'
+            f'<span style="color:{cor_barra};font-weight:600;">{int(r["QT_VOTOS"]):,}</span>'
+            "</div>"
+            '<div style="background:#333;border-radius:3px;height:5px;margin-top:2px;">'
+            f'<div style="width:{pct:.1f}%;background:{cor_barra};height:5px;border-radius:3px;"></div>'
+            "</div>"
+            "</div>"
         )
-    return "".join(html_blocos)
+    return (
+        f'<div style="background:#222;color:{cor_barra};padding:4px;text-align:center;font-size:11px;font-weight:bold;margin-top:5px;">🗳️ {cargo_titulo}</div>'
+        f'<div style="max-height:200px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>'
+    )
+
+
+def _gerar_era(
+    grupo: pd.DataFrame,
+    cargos: list,
+    cor_barra: str,
+    rotulo: str,
+    limite: int = None,
+) -> str:
+    blocos = ""
+    for cargo_nome, cargo_titulo in cargos:
+        blocos += _gerar_bloco_cargo(grupo, cargo_nome, cargo_titulo, cor_barra, limite)
+    if not blocos:
+        return ""
+    return (
+        f'<div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">'
+        f'<div style="font-size:12px;color:#aaa;margin-bottom:6px;font-weight:600;">{rotulo}</div>'
+        f"{blocos}"
+        f"</div>"
+    )
+
+
+def gerar_html_candidatos(grupo_2024: pd.DataFrame, grupo_2022: pd.DataFrame) -> str:
+    html_2024 = _gerar_era(
+        grupo_2024,
+        [("PREFEITO", "PREFEITO"), ("VEREADOR", "VEREADORES (LISTA COMPLETA)")],
+        cor_barra="#00ffcc",
+        rotulo="🟢 ELEIÇÕES MUNICIPAIS (2024)",
+    )
+    html_2022 = _gerar_era(
+        grupo_2022,
+        [
+            ("GOVERNADOR", "GOVERNADOR"),
+            ("SENADOR", "SENADOR"),
+            ("DEPUTADO FEDERAL", "DEPUTADO FEDERAL"),
+            ("DEPUTADO ESTADUAL", "DEPUTADO ESTADUAL"),
+        ],
+        cor_barra="#2196f3",
+        rotulo="🔵 ELEIÇÕES GERAIS (2022)",
+        limite=3,
+    )
+    return (html_2024 or "") + (html_2022 or "")
 
 
 def gerar_painel_top10(df, map_var: str) -> str:

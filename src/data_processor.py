@@ -1,5 +1,5 @@
 import pandas as pd
-from config import CACHE_ENTRADA, PERFIL_ENTRADA, VOTACAO_ENTRADA
+from config import CACHE_ENTRADA, PERFIL_ENTRADA, VOTACAO_ENTRADA, VOTACAO_2022_ENTRADA
 from html_components import gerar_html_candidatos
 
 
@@ -47,26 +47,47 @@ def processar_perfil() -> pd.DataFrame:
 
 def processar_votacao(df_principal: pd.DataFrame) -> pd.DataFrame:
     print("Lendo votação 2024...")
-    df_votos = pd.read_csv(VOTACAO_ENTRADA, sep=";", encoding="latin1")
-    df_votos = df_votos[df_votos["DS_CARGO"].isin(["Prefeito", "Vereador"])]
+    df_2024 = pd.read_csv(VOTACAO_ENTRADA, sep=";", encoding="latin1")
+    df_2024["DS_CARGO"] = df_2024["DS_CARGO"].astype(str).str.strip().str.upper()
+    df_2024 = df_2024[df_2024["DS_CARGO"].isin(["PREFEITO", "VEREADOR"])]
 
-    df_votos["NM_MUNICIPIO"] = df_votos["NM_MUNICIPIO"].astype(str).str.strip().str.upper()
-    df_votos["NM_LOCAL_VOTACAO"] = df_votos["NM_LOCAL_VOTACAO"].astype(str).str.strip().str.upper()
-    df_principal["NM_MUNICIPIO"] = df_principal["NM_MUNICIPIO"].astype(str).str.strip().str.upper()
-    df_principal["NM_LOCAL_VOTACAO"] = df_principal["NM_LOCAL_VOTACAO"].astype(str).str.strip().str.upper()
+    print("Lendo votação 2022...")
+    df_2022 = pd.read_csv(VOTACAO_2022_ENTRADA, sep=";", encoding="latin1")
+    df_2022["DS_CARGO"] = df_2022["DS_CARGO"].astype(str).str.strip().str.upper()
+    df_2022 = df_2022[
+        df_2022["DS_CARGO"].isin(
+            ["GOVERNADOR", "SENADOR", "DEPUTADO FEDERAL", "DEPUTADO ESTADUAL"]
+        )
+    ]
 
-    votos_agrupados = df_votos.groupby(
+    for chave in ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]:
+        df_2024[chave] = df_2024[chave].astype(str).str.strip().str.upper()
+        df_2022[chave] = df_2022[chave].astype(str).str.strip().str.upper()
+        df_principal[chave] = df_principal[chave].astype(str).str.strip().str.upper()
+
+    grp_2024 = df_2024.groupby(
+        ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_CARGO", "NM_VOTAVEL"],
+        as_index=False,
+    )["QT_VOTOS"].sum()
+
+    grp_2022 = df_2022.groupby(
         ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_CARGO", "NM_VOTAVEL"],
         as_index=False,
     )["QT_VOTOS"].sum()
 
     historico = []
-    for (municipio, local), grupo in votos_agrupados.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]):
+    locais = df_principal[["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]].drop_duplicates()
+    for _, row in locais.iterrows():
+        m, l = row["NM_MUNICIPIO"], row["NM_LOCAL_VOTACAO"]
+        g2024 = grp_2024[(grp_2024["NM_MUNICIPIO"] == m) & (grp_2024["NM_LOCAL_VOTACAO"] == l)]
+        g2022 = grp_2022[(grp_2022["NM_MUNICIPIO"] == m) & (grp_2022["NM_LOCAL_VOTACAO"] == l)]
         historico.append({
-            "NM_MUNICIPIO": municipio,
-            "NM_LOCAL_VOTACAO": local,
-            "HTML_CANDIDATOS": gerar_html_candidatos(grupo),
+            "NM_MUNICIPIO": m,
+            "NM_LOCAL_VOTACAO": l,
+            "HTML_CANDIDATOS": gerar_html_candidatos(g2024, g2022),
         })
+
+    print(f"  -> {len(historico)} locais com histórico de votação")
     return pd.DataFrame(historico)
 
 
