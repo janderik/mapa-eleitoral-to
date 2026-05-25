@@ -78,7 +78,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
     for _, row in df.iterrows():
         vals = {g: row[g] for g in generos if pd.notna(row[g]) and row[g] > 0}
-        popup = criar_popup_premium(
+        popup_html = criar_popup_premium(
             nome_local=row["NM_LOCAL_VOTACAO"],
             municipio=row["NM_MUNICIPIO"],
             endereco=row.get("DS_ENDERECO", ""),
@@ -88,26 +88,32 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             total=row["TOTAL"],
             html_candidatos=row.get("HTML_CANDIDATOS", ""),
         )
-        if row.get("IS_VOLATIL"):
-            icone = folium.DivIcon(
-                html='<div class="marcador-batalha"></div>',
-                icon_size=(18, 18),
-                icon_anchor=(9, 9),
-            )
-            grupo_destino = fg_volatil
-        else:
-            icone = folium.Icon(color="blue", icon="info-sign")
-            grupo_destino = fg_standard
+        lat, lng = row["NR_LATITUDE"], row["NR_LONGITUDE"]
+        tooltip_text = f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})"
+
         folium.Marker(
-            location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
-            popup=Popup(popup, max_width=380),
-            icon=icone,
-            tooltip=f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})",
-        ).add_to(grupo_destino)
+            location=[lat, lng],
+            popup=Popup(popup_html, max_width=380),
+            icon=folium.Icon(color="blue", icon="info-sign"),
+            tooltip=tooltip_text,
+        ).add_to(fg_standard)
+
+        if row.get("IS_VOLATIL"):
+            folium.Marker(
+                location=[lat, lng],
+                popup=Popup(popup_html, max_width=380),
+                icon=folium.DivIcon(
+                    html='<div class="marcador-batalha"></div>',
+                    icon_size=(18, 18),
+                    icon_anchor=(9, 9),
+                ),
+                tooltip=tooltip_text,
+            ).add_to(fg_volatil)
 
     fg_standard.add_to(mapa)
     fg_volatil.add_to(mapa)
     fg_volatil_var = fg_volatil.get_name()
+    fg_standard_var = fg_standard.get_name()
 
     data_heat = [
         [row["NR_LATITUDE"], row["NR_LONGITUDE"], row["TOTAL"]]
@@ -265,6 +271,7 @@ var cityCoords = {json.dumps(coords_muni)};
 var locationCandidates = {json.dumps(locais_candidatos)};
 var volatileLookup = {json.dumps(volatile_lookup)};
 var fgVolatilName = '{fg_volatil_var}';
+var fgStandardName = '{fg_standard_var}';
 
 function toggleSidebar() {{
     var sb = document.getElementById('control-sidebar');
@@ -293,25 +300,6 @@ function getLocKeyFromLayer(layer) {{
     return muniName + '|' + locName;
 }}
 
-function getDefaultIcon(key) {{
-    if (volatileLookup[key]) {{
-        return L.divIcon({{
-            className: '',
-            html: '<div class="marcador-batalha"></div>',
-            iconSize: [18, 18],
-            iconAnchor: [9, 9]
-        }});
-    }}
-    return L.icon({{
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    }});
-}}
-
 document.getElementById('search-city').addEventListener('change', function(e) {{
     var cityName = e.target.value.toUpperCase().trim();
     if (cityCoords[cityName]) {{
@@ -323,11 +311,11 @@ document.getElementById('search-city').addEventListener('change', function(e) {{
 }});
 
 function highlightCandidate(candidateName) {{
-    var leafletMap = window['{map_var}'];
-    if (!leafletMap) return;
+    var fgStd = window[fgStandardName];
+    if (!fgStd) return;
     var q = candidateName.toUpperCase().trim();
     var anyMatch = false;
-    leafletMap.eachLayer(function(layer) {{
+    fgStd.eachLayer(function(layer) {{
         if (!layer.getLatLng || !layer.setIcon) return;
         var key = getLocKeyFromLayer(layer);
         if (!key) return;
@@ -355,13 +343,20 @@ function highlightCandidate(candidateName) {{
 }}
 
 function resetFilter() {{
-    var leafletMap = window['{map_var}'];
-    if (!leafletMap) return;
-    leafletMap.eachLayer(function(layer) {{
+    var fgStd = window[fgStandardName];
+    if (!fgStd) return;
+    fgStd.eachLayer(function(layer) {{
         if (!layer.getLatLng || !layer.setIcon) return;
         layer.setOpacity(1.0);
         var key = getLocKeyFromLayer(layer);
-        layer.setIcon(getDefaultIcon(key));
+        layer.setIcon(L.icon({{
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        }}));
     }});
     document.getElementById('search-candidate').value = '';
 }}
