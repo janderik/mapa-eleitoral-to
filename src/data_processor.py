@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 from config import CACHE_ENTRADA, PERFIL_ENTRADA, VOTACAO_ENTRADA, VOTACAO_2022_ENTRADA
 from html_components import gerar_html_candidatos
@@ -75,6 +76,11 @@ def processar_votacao(df_principal: pd.DataFrame) -> pd.DataFrame:
         as_index=False,
     )["QT_VOTOS"].sum()
 
+    todos_candidatos = set()
+    for nome in pd.concat([df_2024["NM_VOTAVEL"], df_2022["NM_VOTAVEL"]]).unique():
+        if pd.notna(nome):
+            todos_candidatos.add(str(nome).strip())
+
     historico = []
     locais = df_principal[["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]].drop_duplicates()
     qtd_volateis = 0
@@ -92,17 +98,23 @@ def processar_votacao(df_principal: pd.DataFrame) -> pd.DataFrame:
             if is_volatil:
                 qtd_volateis += 1
 
+        candidatos_locais = set()
+        for nome in pd.concat([g2024["NM_VOTAVEL"], g2022["NM_VOTAVEL"]]):
+            if pd.notna(nome):
+                candidatos_locais.add(str(nome).strip())
+
         historico.append({
             "NM_MUNICIPIO": m,
             "NM_LOCAL_VOTACAO": l,
             "IS_VOLATIL": is_volatil,
+            "CANDIDATOS_LIST": json.dumps(sorted(candidatos_locais)),
             "HTML_CANDIDATOS": gerar_html_candidatos(g2024, g2022),
         })
 
     print(f"  -> {len(historico)} locais com histórico de votação")
     print(f"  DEBUG: Total de locais analisados: {len(locais)}")
     print(f"  DEBUG: Locais identificados como VOLÁTEIS: {qtd_volateis}")
-    return pd.DataFrame(historico)
+    return pd.DataFrame(historico), sorted(todos_candidatos)
 
 
 def mergedf(cache: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
@@ -121,7 +133,7 @@ def colunas_genero(df: pd.DataFrame) -> list:
     from typing import List
     base = {"NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_ENDERECO", "NM_BAIRRO",
             "NR_CEP", "NR_LATITUDE", "NR_LONGITUDE", "TOTAL",
-            "HTML_CANDIDATOS", "IS_VOLATIL"}
+            "HTML_CANDIDATOS", "IS_VOLATIL", "CANDIDATOS_LIST"}
     cols = [c for c in df.columns if c not in base]
     preferidas = ["FEMININO", "MASCULINO", "NÃO INFORMADO"]
     ordenadas = [g for g in preferidas if g in cols]

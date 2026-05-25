@@ -39,12 +39,13 @@ def main():
     perfil = processar_perfil()
     df = mergedf(cache, perfil)
 
-    df_historico = processar_votacao(df)
+    df_historico, candidatos_list = processar_votacao(df)
 
     df = df.merge(df_historico, on=["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"], how="left")
     df["HTML_CANDIDATOS"] = df["HTML_CANDIDATOS"].fillna("")
+    df["CANDIDATOS_LIST"] = df["CANDIDATOS_LIST"].fillna("[]")
 
-    mapa = criar_mapa(df)
+    mapa = criar_mapa(df, candidatos_list)
     mapa.save(ARQUIVO_SAIDA_MAPA)
 
     with open(ARQUIVO_SAIDA_MAPA, "r", encoding="utf-8") as f:

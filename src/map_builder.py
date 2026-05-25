@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 import folium
-from folium import Html, Popup
+from folium import Html, Popup, Element
 from folium.plugins import HeatMap
 
 from config import COORDENADAS_CENTRO, ZOOM_INICIAL
@@ -51,7 +51,7 @@ def criar_popup_premium(
     return Html(html, script=True)
 
 
-def criar_mapa(df: pd.DataFrame) -> folium.Map:
+def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     print("Criando mapa interativo...")
 
     mapa = folium.Map(
@@ -73,6 +73,7 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
     ).add_to(mapa)
 
     generos = colunas_genero(df)
+    fg = folium.FeatureGroup(name="Locais de Votação")
 
     for _, row in df.iterrows():
         vals = {g: row[g] for g in generos if pd.notna(row[g]) and row[g] > 0}
@@ -86,12 +87,15 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
             total=row["TOTAL"],
             html_candidatos=row.get("HTML_CANDIDATOS", ""),
         )
+        cor_icone = "red" if row.get("IS_VOLATIL") else "blue"
         folium.Marker(
             location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
             popup=Popup(popup, max_width=380),
-            icon=folium.Icon(color="blue", icon="map-marker", prefix="fa"),
+            icon=folium.Icon(color=cor_icone, icon="info-sign"),
             tooltip=f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})",
-        ).add_to(mapa)
+        ).add_to(fg)
+
+    fg.add_to(mapa)
 
     data_heat = [
         [row["NR_LATITUDE"], row["NR_LONGITUDE"], row["TOTAL"]]
@@ -110,7 +114,7 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
 
     map_var = mapa.get_name()
     html_painel = gerar_painel_top10(df, map_var)
-    mapa.get_root().html.add_child(folium.Element(html_painel))
+    mapa.get_root().html.add_child(Element(html_painel))
 
     coords_muni = {}
     for nome, grupo in df.groupby("NM_MUNICIPIO"):
@@ -118,11 +122,28 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
 
     opts = "".join(f'<option value="{n}">' for n in sorted(coords_muni))
 
+    cand_opts = ""
+    if candidatos_list:
+        cand_opts = "".join(f'<option value="{c}">' for c in candidatos_list)
+
+    locais_candidatos = {}
+    volatile_lookup = {}
+    for _, row in df.iterrows():
+        chave = f"{row['NM_MUNICIPIO']}|{row['NM_LOCAL_VOTACAO']}"
+        locais_candidatos[chave] = json.loads(row.get("CANDIDATOS_LIST", "[]"))
+        volatile_lookup[chave] = bool(row.get("IS_VOLATIL"))
+
     html_search = f"""
-    <div id="search-bar-container" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);z-index:9999;width:320px;max-width:90vw;">
+    <div id="search-bar-container" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);z-index:9999;width:320px;max-width:90vw;display:flex;flex-direction:column;gap:6px;">
         <input type="text" id="search-city" list="city-list" placeholder="🔍 Buscar Município..."
-            style="width:100%;padding:12px 16px;font-size:14px;border:1px solid #00ffcc;border-radius:8px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
+            style="width:100%;padding:10px 14px;font-size:13px;border:1px solid #00ffcc;border-radius:6px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
         <datalist id="city-list">{opts}</datalist>
+        <div style="display:flex;gap:4px;">
+            <input type="text" id="search-candidate" list="candidate-list" placeholder="🔎 Filtrar por Candidato..."
+                style="flex:1;padding:10px 14px;font-size:13px;border:1px solid #ff9800;border-radius:6px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
+            <button id="clear-filter" style="padding:10px 12px;font-size:12px;border:1px solid #666;border-radius:6px;background:rgba(18,18,24,0.92);color:#ccc;cursor:pointer;font-weight:bold;white-space:nowrap;">✕</button>
+        </div>
+        <datalist id="candidate-list">{cand_opts}</datalist>
     </div>"""
 
     script_search = f"""
@@ -136,10 +157,92 @@ document.getElementById('search-city').addEventListener('change', function(e) {{
         }}
     }}
 }});
+
+var locationCandidates = {json.dumps(locais_candidatos)};
+var volatileLookup = {json.dumps(volatile_lookup)};
+
+function getLocKeyFromLayer(layer) {{
+    var tooltip = layer.getTooltip();
+    if (!tooltip) return '';
+    var content = tooltip.getContent();
+    var idx = content.lastIndexOf(' (');
+    if (idx === -1) return '';
+    var locName = content.substring(0, idx);
+    var muniName = content.substring(idx + 2, content.length - 1);
+    return muniName + '|' + locName;
+}}
+
+function highlightCandidate(candidateName) {{
+    var leafletMap = window['{map_var}'];
+    if (!leafletMap) return;
+    var q = candidateName.toUpperCase().trim();
+    var anyMatch = false;
+    leafletMap.eachLayer(function(layer) {{
+        if (!layer.getLatLng || !layer.setIcon) return;
+        var key = getLocKeyFromLayer(layer);
+        if (!key) return;
+        var hasCandidate = locationCandidates[key] && locationCandidates[key].some(function(c) {{ return c.toUpperCase() === q; }});
+        if (hasCandidate) {{
+            anyMatch = true;
+            layer.setOpacity(1.0);
+            layer.setIcon(L.icon({{
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            }}));
+        }} else {{
+            layer.setOpacity(0.1);
+        }}
+    }});
+    if (!anyMatch) {{
+        resetFilter();
+        document.getElementById('search-candidate').value = '';
+        alert('Nenhum local encontrado com votações para este candidato.');
+    }}
+}}
+
+function resetFilter() {{
+    var leafletMap = window['{map_var}'];
+    if (!leafletMap) return;
+    leafletMap.eachLayer(function(layer) {{
+        if (!layer.getLatLng || !layer.setIcon) return;
+        layer.setOpacity(1.0);
+        var key = getLocKeyFromLayer(layer);
+        var isVolatil = volatileLookup[key] || false;
+        layer.setIcon(L.icon({{
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + (isVolatil ? 'red' : 'blue') + '.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        }}));
+    }});
+    document.getElementById('search-candidate').value = '';
+}}
+
+document.getElementById('search-candidate').addEventListener('change', function(e) {{
+    if (e.target.value.trim()) {{
+        highlightCandidate(e.target.value);
+    }}
+}});
+
+document.getElementById('clear-filter').addEventListener('click', function() {{
+    resetFilter();
+}});
+
+document.getElementById('search-candidate').addEventListener('keypress', function(e) {{
+    if (e.key === 'Enter' && e.target.value.trim()) {{
+        highlightCandidate(e.target.value);
+    }}
+}});
 """
 
-    mapa.get_root().html.add_child(folium.Element(html_search))
-    mapa.get_root().script.add_child(folium.Element(script_search))
+    mapa.get_root().html.add_child(Element(html_search))
+    mapa.get_root().script.add_child(Element(script_search))
 
     print(f"  -> {len(df)} marcadores adicionados")
     return mapa
