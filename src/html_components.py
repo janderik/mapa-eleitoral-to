@@ -36,11 +36,11 @@ def _gerar_bloco_cargo(
         diferenca_pct = (votos_1o - votos_2o) / total_cargo if total_cargo > 0 else 1
         if diferenca_pct <= 0.05:
             html_alerta = (
-                '<div style="background:rgba(255,51,51,0.15);border:1px solid #ff3333;color:#ff9999;padding:10px;'
+                '<div style="background:rgba(255,0,0,0.1);border:1px solid #ff0000;color:#ff3333;padding:10px;'
                 'border-radius:5px;margin-bottom:12px;text-align:center;font-size:11px;font-weight:bold;'
-                'box-shadow:0 0 10px rgba(255,51,51,0.2);">'
+                'text-transform:uppercase;">'
                 '⚠️ ZONA DE ALTA VOLATILIDADE (< 5% DE MARGEM)'
-                '<br><span style="font-size:9px;color:#ffcccc;font-weight:normal;">'
+                '<br><span style="font-size:9px;color:#ff6666;font-weight:normal;text-transform:none;">'
                 'Território vulnerável a virada de votos.</span></div>'
             )
     open_attr = " open" if abrir else ""

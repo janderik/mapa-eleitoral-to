@@ -156,6 +156,20 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     html_estilo = """
     <style>
     body, html { overflow-x: hidden !important; width: 100%; height: 100%; margin: 0; padding: 0; }
+    .leaflet-popup-content-wrapper {
+        background: #121218 !important;
+        color: #ffffff !important;
+        border: 1px solid #333 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.8) !important;
+    }
+    .leaflet-popup-tip {
+        background: #121218 !important;
+    }
+    .leaflet-container a.leaflet-popup-close-button {
+        color: #00ffcc !important;
+        font-weight: bold !important;
+    }
     @keyframes pulso-sombra {
         0%, 100% { box-shadow: 0 0 4px 2px rgba(255, 0, 0, 0.6); }
         50% { box-shadow: 0 0 8px 4px rgba(255, 0, 0, 0.3); }
