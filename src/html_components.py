@@ -36,17 +36,17 @@ def _gerar_bloco_cargo(
         diferenca_pct = (votos_1o - votos_2o) / total_cargo if total_cargo > 0 else 1
         if diferenca_pct <= 0.05:
             html_alerta = (
-                '<div style="background:rgba(255,51,51,0.15);border:1px solid #ff3333;color:#ff4d4d;padding:8px;'
-                'border-radius:5px;margin-bottom:10px;text-align:center;font-size:11px;font-weight:bold;'
-                'box-shadow:0 0 8px rgba(255,51,51,0.3);">'
+                '<div style="background:rgba(255,51,51,0.15);border:1px solid #ff3333;color:#ff9999;padding:10px;'
+                'border-radius:5px;margin-bottom:12px;text-align:center;font-size:11px;font-weight:bold;'
+                'box-shadow:0 0 10px rgba(255,51,51,0.2);">'
                 '⚠️ ZONA DE ALTA VOLATILIDADE (< 5% DE MARGEM)'
-                '<br><span style="font-size:9px;color:#ccc;font-weight:normal;">'
+                '<br><span style="font-size:9px;color:#ffcccc;font-weight:normal;">'
                 'Território vulnerável a virada de votos.</span></div>'
             )
     open_attr = " open" if abrir else ""
     return html_alerta + (
         f'<details{open_attr} style="margin-bottom:6px;background:#1a1a1a;border:1px solid #333;border-radius:5px;">'
-        f'<summary style="background:#222;color:{cor_barra};padding:8px 10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;position:sticky;top:0;z-index:10;">🗳️ {cargo_titulo}</summary>'
+        f'<summary style="background:#2a2a35;color:#ffffff;padding:10px;font-size:12px;font-weight:bold;cursor:pointer;outline:none;border-radius:4px;border-left:4px solid {cor_barra};transition:background 0.2s;position:sticky;top:0;z-index:10;">🗳️ {cargo_titulo}</summary>'
         f'<div style="max-height:40vh;overflow-y:auto;padding:6px;">{linhas}</div>'
         f"</details>"
     )
@@ -67,7 +67,7 @@ def _gerar_era(
     if not blocos:
         return ""
     return (
-        f'<div style="color:#aaa;font-size:11px;margin-bottom:5px;margin-top:10px;border-bottom:1px solid #444;padding-bottom:3px;position:sticky;top:0;z-index:10;background:#1a1a1a;">{rotulo}</div>'
+        f'<div style="background:transparent;color:#ffffff;font-size:12px;font-weight:bold;margin-bottom:8px;margin-top:15px;border-bottom:2px solid #444;padding-bottom:4px;letter-spacing:0.5px;text-transform:uppercase;position:sticky;top:0;z-index:10;">{rotulo}</div>'
         f"{blocos}"
     )
 

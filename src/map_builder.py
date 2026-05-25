@@ -42,8 +42,8 @@ def criar_popup_premium(
         </div>
         {itens}
         <hr style="border:none;border-top:1px solid #bdc3c7;margin:12px 0;">
-        <div style="padding:10px;background:linear-gradient(135deg,#f5f7fa,#e4e8ec);border-radius:6px;text-align:center;">
-            <span style="font-size:17px;color:#27ae60;font-weight:bold;">TOTAL: {int(total):,}</span>
+        <div style="padding:10px;background:#1e1e24;color:#00ffcc;border:1px solid #333;text-align:center;font-weight:bold;font-size:14px;border-radius:5px;margin-bottom:15px;box-shadow:inset 0 0 10px rgba(0,0,0,0.5);">
+            <span style="font-size:17px;">TOTAL: {int(total):,}</span>
         </div>
         <hr style="margin:5px 0;border:1px solid #ccc;">
         {html_candidatos if html_candidatos else '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico de votação nominal</div>'}
