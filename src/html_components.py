@@ -8,8 +8,6 @@ def gerar_html_candidatos(grupo_local: pd.DataFrame) -> str:
         df_cargo = grupo_local[grupo_local["DS_CARGO"] == cargo].sort_values("QT_VOTOS", ascending=False)
         if df_cargo.empty:
             continue
-        if cargo == "Vereador":
-            df_cargo = df_cargo.head(10)
         total_cargo = df_cargo["QT_VOTOS"].sum()
         linhas = ""
         for _, r in df_cargo.iterrows():
@@ -25,10 +23,10 @@ def gerar_html_candidatos(grupo_local: pd.DataFrame) -> str:
                 "</div>"
                 "</div>"
             )
-        titulo = "PREFEITO" if cargo == "Prefeito" else "VEREADOR (TOP 10)"
+        titulo = "PREFEITO" if cargo == "Prefeito" else "VEREADORES (LISTA COMPLETA)"
         html_blocos.append(
             f'<div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;margin-top:5px;">🗳️ {titulo}</div>'
-            f'<div style="max-height:120px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>'
+            f'<div style="max-height:200px;overflow-y:auto;background:#1a1a1a;padding:5px;">{linhas}</div>'
         )
     return "".join(html_blocos)
 
