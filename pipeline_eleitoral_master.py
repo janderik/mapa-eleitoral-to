@@ -61,11 +61,13 @@ def processar_perfil() -> pd.DataFrame:
     return df_pivot
 
 
-def gerar_html_por_cargo(df_local: pd.DataFrame, cargo: str) -> str:
+def gerar_html_por_cargo(df_local: pd.DataFrame, cargo: str, limite: int = None) -> str:
     grupo = df_local[df_local["DS_CARGO"] == cargo]
     if grupo.empty:
         return '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico para este cargo</div>'
     grupo = grupo.sort_values("QT_VOTOS", ascending=False)
+    if limite is not None:
+        grupo = grupo.head(limite)
     total_local = grupo["QT_VOTOS"].sum()
     linhas = ""
     for _, r in grupo.iterrows():
@@ -99,7 +101,7 @@ def processar_votacao() -> pd.DataFrame:
     historico = []
     for (municipio, local), grupo in votos_agrupados.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]):
         html_prefeito = gerar_html_por_cargo(grupo, "Prefeito")
-        html_vereador = gerar_html_por_cargo(grupo, "Vereador")
+        html_vereador = gerar_html_por_cargo(grupo, "Vereador", limite=10)
         historico.append({
             "NM_MUNICIPIO": municipio,
             "NM_LOCAL_VOTACAO": local,
@@ -143,7 +145,6 @@ def criar_popup_premium(
     cep: str,
     valores_genero: dict,
     total: int,
-    uid: str,
     html_prefeito: str = "",
     html_vereador: str = "",
 ) -> Html:
@@ -159,6 +160,28 @@ def criar_popup_premium(
     if cep:
         endereco_completo += f" - CEP {cep}"
 
+    has_prefeito = bool(html_prefeito.strip())
+    has_vereador = bool(html_vereador.strip())
+
+    cargo_html = ""
+    if has_prefeito or has_vereador:
+        cargo_html = f"""
+        <div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">
+            <div style="font-size:12px;color:#aaa;margin-bottom:6px;font-weight:600;">🗳 RESULTADO ELEIÇÕES 2024</div>"""
+        if has_prefeito:
+            cargo_html += f"""
+            <div style="background:#222;color:#fff;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ PREFEITO</div>
+            <div style="max-height:110px;overflow-y:auto;background:#1a1a1a;padding:5px;margin-bottom:5px;">
+                {html_prefeito}
+            </div>"""
+        if has_vereador:
+            cargo_html += f"""
+            <div style="background:#222;color:#fff;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ VEREADOR (TOP 10 LOCAL)</div>
+            <div style="max-height:110px;overflow-y:auto;background:#1a1a1a;padding:5px;">
+                {html_vereador}
+            </div>"""
+        cargo_html += "</div>"
+
     html = f"""
     <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:240px;padding:5px;">
         <h4 style="color:#2c3e50;margin:0 0 6px 0;border-bottom:2px solid #3498db;padding-bottom:8px;font-size:15px;">
@@ -173,32 +196,9 @@ def criar_popup_premium(
         <div style="padding:10px;background:linear-gradient(135deg,#f5f7fa,#e4e8ec);border-radius:6px;text-align:center;">
             <span style="font-size:17px;color:#27ae60;font-weight:bold;">TOTAL: {int(total):,}</span>
         </div>
-        <div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">
-            <div style="font-size:12px;color:#aaa;margin-bottom:6px;font-weight:600;">🗳 RESULTADO ELEIÇÕES 2024</div>
-            <div style="margin-bottom:6px;">
-                <select id="cargo-select-{uid}" onchange="toggleCargo_{uid}()" style="width:100%;padding:5px;background:#2a2a3a;color:#cfcfcf;border:1px solid #444;border-radius:4px;font-size:12px;outline:none;cursor:pointer;">
-                    <option value="prefeito">Prefeito</option>
-                    <option value="vereador">Vereador</option>
-                </select>
-            </div>
-            <div id="prefeito-{uid}">
-                {html_prefeito if html_prefeito else '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico para este cargo</div>'}
-            </div>
-            <div id="vereador-{uid}" style="display:none;">
-                {html_vereador if html_vereador else '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico para este cargo</div>'}
-            </div>
-        </div>
-    </div>
-    <script>
-    function toggleCargo_{uid}() {{
-        var sel = document.getElementById('cargo-select-{uid}');
-        var p = document.getElementById('prefeito-{uid}');
-        var v = document.getElementById('vereador-{uid}');
-        p.style.display = sel.value === 'prefeito' ? '' : 'none';
-        v.style.display = sel.value === 'vereador' ? '' : 'none';
-    }}
-    </script>"""
-    return Html(html, script=True)
+        {cargo_html}
+    </div>"""
+    return Html(html, script=False)
 
 
 def criar_mapa(df: pd.DataFrame) -> folium.Map:
@@ -224,9 +224,8 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
 
     generos = colunas_genero(df)
 
-    for idx, (_, row) in enumerate(df.iterrows()):
+    for _, row in df.iterrows():
         vals = {g: row[g] for g in generos if pd.notna(row[g]) and row[g] > 0}
-        uid = f"p{idx}"
         popup = criar_popup_premium(
             nome_local=row["NM_LOCAL_VOTACAO"],
             municipio=row["NM_MUNICIPIO"],
@@ -235,7 +234,6 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
             cep=row.get("NR_CEP", ""),
             valores_genero=vals,
             total=row["TOTAL"],
-            uid=uid,
             html_prefeito=row.get("HTML_PREFEITO", ""),
             html_vereador=row.get("HTML_VEREADOR", ""),
         )
