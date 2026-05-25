@@ -144,6 +144,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             <button id="clear-filter" style="padding:10px 12px;font-size:12px;border:1px solid #666;border-radius:6px;background:rgba(18,18,24,0.92);color:#ccc;cursor:pointer;font-weight:bold;white-space:nowrap;">✕</button>
         </div>
         <datalist id="candidate-list">{cand_opts}</datalist>
+        <button id="toggle-volatile" style="width:100%;padding:8px;font-size:12px;border:1px solid #ff3333;border-radius:6px;background:rgba(255,51,51,0.15);color:#ff4d4d;cursor:pointer;font-weight:bold;">🔴 ZONAS VOLÁTEIS ({int(df['IS_VOLATIL'].sum())})</button>
     </div>"""
 
     script_search = f"""
@@ -237,6 +238,42 @@ document.getElementById('clear-filter').addEventListener('click', function() {{
 document.getElementById('search-candidate').addEventListener('keypress', function(e) {{
     if (e.key === 'Enter' && e.target.value.trim()) {{
         highlightCandidate(e.target.value);
+    }}
+}});
+
+var volatileActive = false;
+document.getElementById('toggle-volatile').addEventListener('click', function() {{
+    volatileActive = !volatileActive;
+    var btn = document.getElementById('toggle-volatile');
+    var leafletMap = window['{map_var}'];
+    if (!leafletMap) return;
+    if (volatileActive) {{
+        btn.style.background = 'rgba(255,51,51,0.4)';
+        btn.style.border = '1px solid #ff0000';
+        btn.style.color = '#fff';
+        leafletMap.eachLayer(function(layer) {{
+            if (!layer.getLatLng || !layer.setIcon) return;
+            var key = getLocKeyFromLayer(layer);
+            var isVolatil = volatileLookup[key] || false;
+            if (isVolatil) {{
+                layer.setOpacity(1.0);
+                layer.setIcon(L.icon({{
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                }}));
+            }} else {{
+                layer.setOpacity(0.1);
+            }}
+        }});
+    }} else {{
+        btn.style.background = 'rgba(255,51,51,0.15)';
+        btn.style.border = '1px solid #ff3333';
+        btn.style.color = '#ff4d4d';
+        resetFilter();
     }}
 }});
 """
