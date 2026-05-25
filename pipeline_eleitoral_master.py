@@ -61,6 +61,25 @@ def processar_perfil() -> pd.DataFrame:
     return df_pivot
 
 
+def gerar_html_candidatos(grupo: pd.DataFrame) -> str:
+    grupo = grupo.sort_values("QT_VOTOS", ascending=False)
+    total_local = grupo["QT_VOTOS"].sum()
+    linhas = ""
+    for _, r in grupo.iterrows():
+        pct = (r["QT_VOTOS"] / total_local) * 100 if total_local > 0 else 0
+        linhas += f"""
+        <div style="margin:4px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;">
+                <span style="color:#e0e0e0;font-weight:500;">{r['NM_VOTAVEL']}</span>
+                <span style="color:#00ffcc;font-weight:600;">{int(r['QT_VOTOS']):,}</span>
+            </div>
+            <div style="background:#333;border-radius:3px;height:5px;margin-top:2px;">
+                <div style="width:{pct:.1f}%;background:#00ffcc;height:5px;border-radius:3px;transition:width .3s;"></div>
+            </div>
+        </div>"""
+    return f"""<div style="max-height:150px;overflow-y:auto;padding-right:5px;">{linhas}</div>"""
+
+
 def processar_votacao() -> pd.DataFrame:
     print(f"Lendo votação 2024: {Config.VOTACAO_ENTRADA}")
     df = pd.read_csv(Config.VOTACAO_ENTRADA, sep=";", encoding="latin1")
@@ -74,14 +93,14 @@ def processar_votacao() -> pd.DataFrame:
         as_index=False,
     )["QT_VOTOS"].sum()
 
-    idx = votos_agrupados.groupby(
-        ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"],
-    )["QT_VOTOS"].idxmax()
+    historico = []
+    for (municipio, local), grupo in votos_agrupados.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]):
+        html = gerar_html_candidatos(grupo)
+        historico.append({"NM_MUNICIPIO": municipio, "NM_LOCAL_VOTACAO": local, "HTML_CANDIDATOS": html})
 
-    df_vencedores = votos_agrupados.loc[idx, ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "NM_VOTAVEL", "QT_VOTOS"]].reset_index(drop=True)
-    df_vencedores = df_vencedores.rename(columns={"NM_VOTAVEL": "NM_VOTAVEL_VENC"})
-    print(f"  -> {len(df_vencedores)} locais com vencedor identificado")
-    return df_vencedores
+    df_historico = pd.DataFrame(historico)
+    print(f"  -> {len(df_historico)} locais com histórico de votação")
+    return df_historico
 
 
 def mergedf(cache: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
@@ -99,7 +118,7 @@ def mergedf(cache: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
 def colunas_genero(df: pd.DataFrame) -> List[str]:
     base = {"NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_ENDERECO", "NM_BAIRRO",
             "NR_CEP", "NR_LATITUDE", "NR_LONGITUDE", "TOTAL",
-            "NM_VOTAVEL_VENC", "QT_VOTOS"}
+            "HTML_CANDIDATOS"}
     cols = [c for c in df.columns if c not in base]
     preferidas = ["FEMININO", "MASCULINO", "NÃO INFORMADO"]
     ordenadas = [g for g in preferidas if g in cols]
@@ -115,8 +134,7 @@ def criar_popup_premium(
     cep: str,
     valores_genero: dict,
     total: int,
-    nm_votavel_venc: str = "Sem registro",
-    qt_votos_venc: int = 0,
+    html_candidatos: str = "",
 ) -> Html:
     mapeamento_cores = {"FEMININO": "#e91e63", "MASCULINO": "#2196f3", "NÃO INFORMADO": "#9e9e9e"}
     itens = ""
@@ -144,9 +162,9 @@ def criar_popup_premium(
         <div style="padding:10px;background:linear-gradient(135deg,#f5f7fa,#e4e8ec);border-radius:6px;text-align:center;">
             <span style="font-size:17px;color:#27ae60;font-weight:bold;">TOTAL: {int(total):,}</span>
         </div>
-        <hr style="margin:5px 0;border:1px solid #ccc;">
-        <div style="background-color:#1a1a1a;color:#00ffcc;padding:5px;border-radius:4px;margin-top:5px;">
-            <b>🏆 Vencedor (2024):</b> {nm_votavel_venc} ({qt_votos_venc} votos)
+        <div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;font-weight:600;">🗳 RESULTADO PREFEITO 2024</div>
+            {html_candidatos if html_candidatos else '<div style="color:#888;font-size:11px;text-align:center;padding:8px 0;">Sem histórico de votação nominal</div>'}
         </div>
     </div>"""
     return Html(html, script=True)
@@ -185,8 +203,7 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
             cep=row.get("NR_CEP", ""),
             valores_genero=vals,
             total=row["TOTAL"],
-            nm_votavel_venc=row.get("NM_VOTAVEL_VENC", "Sem registro"),
-            qt_votos_venc=int(row.get("QT_VOTOS", 0)),
+            html_candidatos=row.get("HTML_CANDIDATOS", ""),
         )
         folium.Marker(
             location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
@@ -241,40 +258,85 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
             <td style="text-align:right;padding:4px 8px;font-family:'Consolas',monospace;color:#00e676;white-space:nowrap;">{pct:.1f}%</td>
         </tr>"""
 
+    painel_id = "top10-panel"
+    body_id = "top10-body"
+    toggle_id = "top10-toggle"
+
     html_painel = f"""
-    <div style="
-        position:absolute; top:12px; left:12px; z-index:9999;
-        background:rgba(18,18,24,0.92);
-        border:1px solid #2a2a3a; border-radius:10px;
-        padding:14px 16px;
-        font-family:'Segoe UI',Arial,sans-serif;
-        color:#cfcfcf;
-        max-height:85vh; overflow-y:auto;
-        box-shadow:0 4px 24px rgba(0,0,0,0.6);
-        min-width:320px;
-    ">
-        <div style="
-            font-size:14px; font-weight:700;
-            color:#00e676; text-align:center;
+    <style>
+        #{painel_id} {{
+            position:absolute; top:12px; left:12px; z-index:9999;
+            background:rgba(18,18,24,0.92);
+            border:1px solid #2a2a3a; border-radius:10px;
+            padding:14px 16px;
+            font-family:'Segoe UI',Arial,sans-serif;
+            color:#cfcfcf;
+            max-height:85vh; overflow-y:auto;
+            box-shadow:0 4px 24px rgba(0,0,0,0.6);
+            min-width:320px;
+            transition: all 0.3s ease;
+        }}
+        #{toggle_id} {{
+            background:none; border:none; color:#00e676;
+            font-size:18px; cursor:pointer; padding:0 4px;
+            line-height:1; transition:transform 0.3s;
+        }}
+        #{toggle_id}:hover {{ transform:scale(1.2); }}
+        @media (max-width: 768px) {{
+            #{painel_id} {{
+                min-width:auto; width:90vw; left:5vw; top:auto;
+                bottom:10px; padding:10px 12px;
+                font-size:11px;
+                max-height:50vh;
+            }}
+            #{painel_id} table {{ font-size:10px !important; }}
+            #{painel_id} th, #{painel_id} td {{ padding:2px 4px !important; }}
+        }}
+    </style>
+    <div id="{painel_id}">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+            font-size:14px; font-weight:700; color:#00e676; text-align:center;
             margin-bottom:8px; padding-bottom:8px;
-            border-bottom:2px solid #00e676;
-            letter-spacing:0.5px;
-        ">TOP 10 COLÉGIOS ELEITORAIS - TO</div>
-        <div style="text-align:center;font-size:11px;color:#888;margin-bottom:10px;">
-            Total do estado: <span style="color:#fff;font-weight:600;">{total_geral_to:,}</span> eleitores
+            border-bottom:2px solid #00e676; letter-spacing:0.5px;">
+            <span>TOP 10 COLÉGIOS ELEITORAIS - TO</span>
+            <button id="{toggle_id}" onclick="toggleTop10()">−</button>
         </div>
-        <table style="width:100%; border-collapse:collapse; font-size:12px;">
-            <thead>
-                <tr style="border-bottom:1px solid #333; color:#888;">
-                    <th style="padding:3px 6px;">#</th>
-                    <th style="text-align:left;padding:3px 8px;">Município</th>
-                    <th style="text-align:right;padding:3px 8px;">Eleitores</th>
-                    <th style="text-align:right;padding:3px 8px;">%</th>
-                </tr>
-            </thead>
-            <tbody>{linhas_tabela}</tbody>
-        </table>
-    </div>"""
+        <div id="{body_id}">
+            <div style="text-align:center;font-size:11px;color:#888;margin-bottom:10px;">
+                Total do estado: <span style="color:#fff;font-weight:600;">{total_geral_to:,}</span> eleitores
+            </div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr style="border-bottom:1px solid #333; color:#888;">
+                        <th style="padding:3px 6px;">#</th>
+                        <th style="text-align:left;padding:3px 8px;">Município</th>
+                        <th style="text-align:right;padding:3px 8px;">Eleitores</th>
+                        <th style="text-align:right;padding:3px 8px;">%</th>
+                    </tr>
+                </thead>
+                <tbody>{linhas_tabela}</tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+    function toggleTop10() {{
+        var body = document.getElementById('{body_id}');
+        var btn = document.getElementById('{toggle_id}');
+        if (body.style.display === 'none') {{
+            body.style.display = '';
+            btn.textContent = '−';
+        }} else {{
+            body.style.display = 'none';
+            btn.textContent = '+';
+        }}
+    }}
+    if (window.innerWidth <= 768) {{
+        var body = document.getElementById('{body_id}');
+        var btn = document.getElementById('{toggle_id}');
+        if (body) {{ body.style.display = 'none'; }}
+        if (btn) {{ btn.textContent = '+'; }}
+    }}
+    </script>"""
 
     mapa.get_root().html.add_child(folium.Element(html_painel))
 
@@ -291,10 +353,9 @@ def main():
     perfil = processar_perfil()
     df = mergedf(cache, perfil)
 
-    df_vencedores = processar_votacao()
-    df = df.merge(df_vencedores, on=["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"], how="left")
-    df["NM_VOTAVEL_VENC"] = df["NM_VOTAVEL_VENC"].fillna("Sem registro")
-    df["QT_VOTOS"] = df["QT_VOTOS"].fillna(0).astype(int)
+    df_historico = processar_votacao()
+    df = df.merge(df_historico, on=["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"], how="left")
+    df["HTML_CANDIDATOS"] = df["HTML_CANDIDATOS"].fillna("")
 
     mapa = criar_mapa(df)
     mapa.save(Config.ARQUIVO_SAIDA_MAPA)
