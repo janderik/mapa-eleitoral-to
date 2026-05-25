@@ -82,7 +82,7 @@ def gerar_html_por_cargo(df_local: pd.DataFrame, cargo: str, limite: int = None)
                 <div style="width:{pct:.1f}%;background:#00ffcc;height:5px;border-radius:3px;transition:width .3s;"></div>
             </div>
         </div>"""
-    return f"""<div style="max-height:150px;overflow-y:auto;padding-right:5px;">{linhas}</div>"""
+    return linhas
 
 
 def processar_votacao() -> pd.DataFrame:
@@ -102,11 +102,17 @@ def processar_votacao() -> pd.DataFrame:
     for (municipio, local), grupo in votos_agrupados.groupby(["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]):
         html_prefeito = gerar_html_por_cargo(grupo, "Prefeito")
         html_vereador = gerar_html_por_cargo(grupo, "Vereador", limite=10)
+        html_candidatos = f"""
+        <div style="width:100%;margin-top:10px;">
+            <div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ PREFEITO</div>
+            <div style="max-height:100px;overflow-y:auto;background:#1a1a1a;padding:5px;margin-bottom:5px;">{html_prefeito}</div>
+            <div style="background:#222;color:#00ffcc;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ TOP 10 VEREADORES</div>
+            <div style="max-height:100px;overflow-y:auto;background:#1a1a1a;padding:5px;">{html_vereador}</div>
+        </div>"""
         historico.append({
             "NM_MUNICIPIO": municipio,
             "NM_LOCAL_VOTACAO": local,
-            "HTML_PREFEITO": html_prefeito,
-            "HTML_VEREADOR": html_vereador,
+            "HTML_CANDIDATOS": html_candidatos,
         })
 
     df_historico = pd.DataFrame(historico)
@@ -129,7 +135,7 @@ def mergedf(cache: pd.DataFrame, perfil: pd.DataFrame) -> pd.DataFrame:
 def colunas_genero(df: pd.DataFrame) -> List[str]:
     base = {"NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_ENDERECO", "NM_BAIRRO",
             "NR_CEP", "NR_LATITUDE", "NR_LONGITUDE", "TOTAL",
-            "HTML_PREFEITO", "HTML_VEREADOR"}
+            "HTML_CANDIDATOS"}
     cols = [c for c in df.columns if c not in base]
     preferidas = ["FEMININO", "MASCULINO", "NÃO INFORMADO"]
     ordenadas = [g for g in preferidas if g in cols]
@@ -145,8 +151,7 @@ def criar_popup_premium(
     cep: str,
     valores_genero: dict,
     total: int,
-    html_prefeito: str = "",
-    html_vereador: str = "",
+    html_candidatos: str = "",
 ) -> Html:
     mapeamento_cores = {"FEMININO": "#e91e63", "MASCULINO": "#2196f3", "NÃO INFORMADO": "#9e9e9e"}
     itens = ""
@@ -159,28 +164,6 @@ def criar_popup_premium(
     endereco_completo = f"{endereco}, {bairro}" if bairro else endereco
     if cep:
         endereco_completo += f" - CEP {cep}"
-
-    has_prefeito = bool(html_prefeito.strip())
-    has_vereador = bool(html_vereador.strip())
-
-    cargo_html = ""
-    if has_prefeito or has_vereador:
-        cargo_html = f"""
-        <div style="margin-top:8px;border-top:1px solid #444;padding-top:6px;">
-            <div style="font-size:12px;color:#aaa;margin-bottom:6px;font-weight:600;">🗳 RESULTADO ELEIÇÕES 2024</div>"""
-        if has_prefeito:
-            cargo_html += f"""
-            <div style="background:#222;color:#fff;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ PREFEITO</div>
-            <div style="max-height:110px;overflow-y:auto;background:#1a1a1a;padding:5px;margin-bottom:5px;">
-                {html_prefeito}
-            </div>"""
-        if has_vereador:
-            cargo_html += f"""
-            <div style="background:#222;color:#fff;padding:4px;text-align:center;font-size:11px;font-weight:bold;">🗳️ VEREADOR (TOP 10 LOCAL)</div>
-            <div style="max-height:110px;overflow-y:auto;background:#1a1a1a;padding:5px;">
-                {html_vereador}
-            </div>"""
-        cargo_html += "</div>"
 
     html = f"""
     <div style="font-family:'Segoe UI',Arial,sans-serif;min-width:240px;padding:5px;">
@@ -196,7 +179,7 @@ def criar_popup_premium(
         <div style="padding:10px;background:linear-gradient(135deg,#f5f7fa,#e4e8ec);border-radius:6px;text-align:center;">
             <span style="font-size:17px;color:#27ae60;font-weight:bold;">TOTAL: {int(total):,}</span>
         </div>
-        {cargo_html}
+        {html_candidatos}
     </div>"""
     return Html(html, script=False)
 
@@ -234,8 +217,7 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
             cep=row.get("NR_CEP", ""),
             valores_genero=vals,
             total=row["TOTAL"],
-            html_prefeito=row.get("HTML_PREFEITO", ""),
-            html_vereador=row.get("HTML_VEREADOR", ""),
+            html_candidatos=row.get("HTML_CANDIDATOS", ""),
         )
         folium.Marker(
             location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
@@ -386,9 +368,13 @@ def main():
     df = mergedf(cache, perfil)
 
     df_historico = processar_votacao()
+
+    for chave in ["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"]:
+        df[chave] = df[chave].astype(str).str.strip().str.upper()
+        df_historico[chave] = df_historico[chave].astype(str).str.strip().str.upper()
+
     df = df.merge(df_historico, on=["NM_MUNICIPIO", "NM_LOCAL_VOTACAO"], how="left")
-    df["HTML_PREFEITO"] = df["HTML_PREFEITO"].fillna("")
-    df["HTML_VEREADOR"] = df["HTML_VEREADOR"].fillna("")
+    df["HTML_CANDIDATOS"] = df["HTML_CANDIDATOS"].fillna("")
 
     mapa = criar_mapa(df)
     mapa.save(Config.ARQUIVO_SAIDA_MAPA)
