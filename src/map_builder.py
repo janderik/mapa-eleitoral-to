@@ -138,11 +138,11 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     html_sidebar = f"""
     <style>
         #sidebar-toggle {{
-            position:absolute; top:15px; right:15px; z-index:1001;
-            width:42px; height:42px; border:none; border-radius:8px;
-            background:rgba(18,18,24,0.92); color:#00ffcc;
-            font-size:20px; cursor:pointer;
-            border:1px solid #00ffcc; box-shadow:0 4px 24px rgba(0,0,0,0.6);
+            position:absolute; left:10px; bottom:10px; z-index:1000;
+            background:rgba(0,0,0,0.6); color:#00ffcc;
+            border:1px solid #00ffcc; backdrop-filter:blur(10px);
+            padding:10px 14px; border-radius:5px; cursor:pointer;
+            font-size:13px; font-weight:600; letter-spacing:0.5px;
             transition:all .3s ease;
         }}
         #sidebar-toggle:hover {{ background:rgba(0,255,204,0.15); }}
@@ -221,7 +221,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             display:block;
         }}
     </style>
-    <button id="sidebar-toggle" onclick="toggleSidebar()">⚙️</button>
+    <button id="sidebar-toggle" onclick="toggleSidebar()">⚙️ FILTROS</button>
     <div id="control-sidebar">
         <h2>INTELIGÊNCIA TÁTICA</h2>
 
@@ -250,8 +250,19 @@ var volatileLookup = {json.dumps(volatile_lookup)};
 
 function toggleSidebar() {{
     var sb = document.getElementById('control-sidebar');
+    var btn = document.getElementById('sidebar-toggle');
     sb.classList.toggle('open');
+    btn.textContent = sb.classList.contains('open') ? '✕ FECHAR' : '⚙️ FILTROS';
 }}
+
+document.addEventListener('click', function(e) {{
+    var sb = document.getElementById('control-sidebar');
+    var btn = document.getElementById('sidebar-toggle');
+    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {{
+        sb.classList.remove('open');
+        btn.textContent = '⚙️ FILTROS';
+    }}
+}});
 
 function getLocKeyFromLayer(layer) {{
     var tooltip = layer.getTooltip();
