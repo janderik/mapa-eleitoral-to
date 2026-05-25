@@ -144,19 +144,20 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
     html_estilo = """
     <style>
-    @keyframes pulso-neon {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    body, html { overflow-x: hidden !important; width: 100%; height: 100%; margin: 0; padding: 0; }
+    @keyframes pulso-sombra {
+        0%, 100% { box-shadow: 0 0 4px 2px rgba(255, 0, 0, 0.6); }
+        50% { box-shadow: 0 0 8px 4px rgba(255, 0, 0, 0.3); }
     }
     .marcador-batalha {
-        width: 18px;
-        height: 18px;
-        background-color: #ff0033;
+        width: 20px;
+        height: 20px;
+        background-color: #ff0000 !important;
+        border: 3px solid #ffffff;
         border-radius: 50%;
-        border: 2px solid #fff;
-        box-shadow: 0 0 15px 5px rgba(255, 0, 51, 0.8);
-        animation: pulso-neon 2s infinite;
+        box-shadow: 0px 0px 8px rgba(0,0,0,0.8);
+        opacity: 1.0 !important;
+        animation: pulso-sombra 2s infinite;
     }
     </style>
     """
@@ -174,7 +175,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         }}
         #sidebar-toggle:hover {{ background:rgba(0,255,204,0.15); }}
         #control-sidebar {{
-            position:absolute; right:0; top:0; bottom:0; width:300px;
+            position:fixed; right:0; top:0; bottom:0; width:300px;
             background:rgba(18,18,24,0.97);
             border-left:1px solid #333; z-index:1000;
             padding:20px; overflow-y:auto;
