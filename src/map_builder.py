@@ -73,7 +73,8 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     ).add_to(mapa)
 
     generos = colunas_genero(df)
-    fg = folium.FeatureGroup(name="Locais de Votação")
+    fg_standard = folium.FeatureGroup(name="Locais Estáveis")
+    fg_volatil = folium.FeatureGroup(name="Zonas Voláteis")
 
     for _, row in df.iterrows():
         vals = {g: row[g] for g in generos if pd.notna(row[g]) and row[g] > 0}
@@ -93,16 +94,20 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
                 icon_size=(18, 18),
                 icon_anchor=(9, 9),
             )
+            grupo_destino = fg_volatil
         else:
             icone = folium.Icon(color="blue", icon="info-sign")
+            grupo_destino = fg_standard
         folium.Marker(
             location=[row["NR_LATITUDE"], row["NR_LONGITUDE"]],
             popup=Popup(popup, max_width=380),
             icon=icone,
             tooltip=f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})",
-        ).add_to(fg)
+        ).add_to(grupo_destino)
 
-    fg.add_to(mapa)
+    fg_standard.add_to(mapa)
+    fg_volatil.add_to(mapa)
+    fg_volatil_var = fg_volatil.get_name()
 
     data_heat = [
         [row["NR_LATITUDE"], row["NR_LONGITUDE"], row["TOTAL"]]
@@ -223,30 +228,14 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             padding:12px; border:1px solid #ff3333; border-radius:6px;
             background:rgba(255,51,51,0.08);
             cursor:pointer; transition:all .3s;
-            font-size:12px; font-weight:600; color:#ff4d4d;
+            font-size:12px; font-weight:600; color:#ff4d4d; user-select:none;
         }}
-        #control-sidebar .volatile-toggle.active {{
+        #control-sidebar .volatile-toggle:has(input:checked) {{
             background:rgba(255,51,51,0.25);
             border-color:#ff0000; color:#fff;
         }}
         #control-sidebar .volatile-toggle input {{
-            display:none;
-        }}
-        #control-sidebar .volatile-toggle .check {{
-            width:18px; height:18px; border:2px solid #ff3333;
-            border-radius:4px; flex-shrink:0;
-            display:flex; align-items:center; justify-content:center;
-            transition:all .2s;
-        }}
-        #control-sidebar .volatile-toggle.active .check {{
-            background:#ff3333;
-        }}
-        #control-sidebar .volatile-toggle .check::after {{
-            content:'✓'; color:#fff; font-size:12px; font-weight:bold;
-            display:none;
-        }}
-        #control-sidebar .volatile-toggle.active .check::after {{
-            display:block;
+            width:16px; height:16px; accent-color:#ff0000; cursor:pointer; flex-shrink:0;
         }}
     </style>
     <button id="sidebar-toggle" onclick="toggleSidebar()">⚙️ FILTROS</button>
@@ -265,16 +254,17 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         <datalist id="candidate-list">{cand_opts}</datalist>
 
         <label class="section">⚡ ZONA DE RISCO</label>
-        <div class="volatile-toggle" id="volatile-toggle-div" onclick="toggleVolatile()">
-            <div class="check"></div>
+        <label class="volatile-toggle" id="volatile-toggle-label">
+            <input type="checkbox" id="vulnerability-filter" checked>
             <span>ZONAS DE ALTA VOLATILIDADE ({qtd_volateis})</span>
-        </div>
+        </label>
     </div>"""
 
     script_sidebar = f"""
 var cityCoords = {json.dumps(coords_muni)};
 var locationCandidates = {json.dumps(locais_candidatos)};
 var volatileLookup = {json.dumps(volatile_lookup)};
+var fgVolatilName = '{fg_volatil_var}';
 
 function toggleSidebar() {{
     var sb = document.getElementById('control-sidebar');
@@ -384,10 +374,6 @@ document.getElementById('search-candidate').addEventListener('change', function(
 
 document.getElementById('clear-filter').addEventListener('click', function() {{
     resetFilter();
-    var cb = document.getElementById('volatile-toggle-div');
-    if (cb.classList.contains('active')) {{
-        cb.classList.remove('active');
-    }}
 }});
 
 document.getElementById('search-candidate').addEventListener('keypress', function(e) {{
@@ -396,29 +382,16 @@ document.getElementById('search-candidate').addEventListener('keypress', functio
     }}
 }});
 
-function toggleVolatile() {{
-    var div = document.getElementById('volatile-toggle-div');
+document.getElementById('vulnerability-filter').addEventListener('change', function(e) {{
     var leafletMap = window['{map_var}'];
-    if (!leafletMap) return;
-    div.classList.toggle('active');
-    var isActive = div.classList.contains('active');
-    leafletMap.eachLayer(function(layer) {{
-        if (!layer.getLatLng || !layer.setIcon) return;
-        var key = getLocKeyFromLayer(layer);
-        var isVolatil = volatileLookup[key] || false;
-        if (isActive) {{
-            if (isVolatil) {{
-                layer.setOpacity(1.0);
-                layer.setIcon(getDefaultIcon(key));
-            }} else {{
-                layer.setOpacity(0.1);
-            }}
-        }} else {{
-            layer.setOpacity(1.0);
-            layer.setIcon(getDefaultIcon(key));
-        }}
-    }});
-}}
+    var fg = window[fgVolatilName];
+    if (!leafletMap || !fg) return;
+    if (e.target.checked) {{
+        leafletMap.addLayer(fg);
+    }} else {{
+        leafletMap.removeLayer(fg);
+    }}
+}});
 """
 
     mapa.get_root().html.add_child(Element(html_sidebar))
