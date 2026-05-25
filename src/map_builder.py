@@ -126,18 +126,17 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
     </div>"""
 
     script_search = f"""
-    <script>
-    var cityCoords = {json.dumps(coords_muni)};
-    document.getElementById('search-city').addEventListener('change', function(e) {{
-        var cityName = e.target.value.toUpperCase().trim();
-        if (cityCoords[cityName]) {{
-            var leafletMap = window['{map_var}'];
-            if (leafletMap) {{
-                leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
-            }}
+var cityCoords = {json.dumps(coords_muni)};
+document.getElementById('search-city').addEventListener('change', function(e) {{
+    var cityName = e.target.value.toUpperCase().trim();
+    if (cityCoords[cityName]) {{
+        var leafletMap = window['{map_var}'];
+        if (leafletMap) {{
+            leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
         }}
-    }});
-    </script>"""
+    }}
+}});
+"""
 
     mapa.get_root().html.add_child(folium.Element(html_search))
     mapa.get_root().script.add_child(folium.Element(script_search))
