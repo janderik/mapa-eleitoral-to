@@ -133,34 +133,125 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         locais_candidatos[chave] = json.loads(row.get("CANDIDATOS_LIST", "[]"))
         volatile_lookup[chave] = bool(row.get("IS_VOLATIL"))
 
-    html_search = f"""
-    <div id="search-bar-container" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);z-index:9999;width:320px;max-width:90vw;display:flex;flex-direction:column;gap:6px;">
-        <input type="text" id="search-city" list="city-list" placeholder="🔍 Buscar Município..."
-            style="width:100%;padding:10px 14px;font-size:13px;border:1px solid #00ffcc;border-radius:6px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
+    qtd_volateis = int(df['IS_VOLATIL'].sum())
+
+    html_sidebar = f"""
+    <style>
+        #sidebar-toggle {{
+            position:absolute; top:15px; right:15px; z-index:1001;
+            width:42px; height:42px; border:none; border-radius:8px;
+            background:rgba(18,18,24,0.92); color:#00ffcc;
+            font-size:20px; cursor:pointer;
+            border:1px solid #00ffcc; box-shadow:0 4px 24px rgba(0,0,0,0.6);
+            transition:all .3s ease;
+        }}
+        #sidebar-toggle:hover {{ background:rgba(0,255,204,0.15); }}
+        #control-sidebar {{
+            position:absolute; right:0; top:0; bottom:0; width:300px;
+            background:rgba(18,18,24,0.97);
+            border-left:1px solid #333; z-index:1000;
+            padding:20px; overflow-y:auto;
+            transform:translateX(100%);
+            transition:transform 0.3s ease;
+            font-family:'Segoe UI',Arial,sans-serif;
+            box-shadow:-4px 0 24px rgba(0,0,0,0.5);
+            display:flex; flex-direction:column; gap:14px;
+        }}
+        #control-sidebar.open {{ transform:translateX(0); }}
+        #control-sidebar h2 {{
+            color:#00ffcc; font-size:14px; font-weight:700; letter-spacing:1px;
+            margin:0; padding-bottom:12px; border-bottom:2px solid #00ffcc;
+            text-align:center;
+        }}
+        #control-sidebar label.section {{
+            color:#888; font-size:10px; font-weight:600; letter-spacing:1.5px;
+            margin-bottom:2px; text-transform:uppercase;
+        }}
+        #control-sidebar input[type="text"] {{
+            width:100%; padding:10px 14px; font-size:13px;
+            border:1px solid #333; border-radius:6px;
+            background:rgba(0,0,0,0.4); color:#fff;
+            outline:none; box-sizing:border-box;
+            transition:border-color .2s;
+        }}
+        #control-sidebar input[type="text"]:focus {{
+            border-color:#00ffcc;
+        }}
+        #control-sidebar .input-row {{
+            display:flex; gap:4px;
+        }}
+        #control-sidebar .input-row button {{
+            padding:10px 12px; font-size:12px;
+            border:1px solid #666; border-radius:6px;
+            background:rgba(0,0,0,0.4); color:#ccc;
+            cursor:pointer; font-weight:bold; white-space:nowrap;
+            transition:all .2s;
+        }}
+        #control-sidebar .input-row button:hover {{
+            background:rgba(255,255,255,0.1);
+        }}
+        #control-sidebar .volatile-toggle {{
+            display:flex; align-items:center; gap:10px;
+            padding:12px; border:1px solid #ff3333; border-radius:6px;
+            background:rgba(255,51,51,0.08);
+            cursor:pointer; transition:all .3s;
+            font-size:12px; font-weight:600; color:#ff4d4d;
+        }}
+        #control-sidebar .volatile-toggle.active {{
+            background:rgba(255,51,51,0.25);
+            border-color:#ff0000; color:#fff;
+        }}
+        #control-sidebar .volatile-toggle input {{
+            display:none;
+        }}
+        #control-sidebar .volatile-toggle .check {{
+            width:18px; height:18px; border:2px solid #ff3333;
+            border-radius:4px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center;
+            transition:all .2s;
+        }}
+        #control-sidebar .volatile-toggle.active .check {{
+            background:#ff3333;
+        }}
+        #control-sidebar .volatile-toggle .check::after {{
+            content:'✓'; color:#fff; font-size:12px; font-weight:bold;
+            display:none;
+        }}
+        #control-sidebar .volatile-toggle.active .check::after {{
+            display:block;
+        }}
+    </style>
+    <button id="sidebar-toggle" onclick="toggleSidebar()">⚙️</button>
+    <div id="control-sidebar">
+        <h2>INTELIGÊNCIA TÁTICA</h2>
+
+        <label class="section">🔍 MUNICÍPIO</label>
+        <input type="text" id="search-city" list="city-list" placeholder="Buscar município...">
         <datalist id="city-list">{opts}</datalist>
-        <div style="display:flex;gap:4px;">
-            <input type="text" id="search-candidate" list="candidate-list" placeholder="🔎 Filtrar por Candidato..."
-                style="flex:1;padding:10px 14px;font-size:13px;border:1px solid #ff9800;border-radius:6px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
-            <button id="clear-filter" style="padding:10px 12px;font-size:12px;border:1px solid #666;border-radius:6px;background:rgba(18,18,24,0.92);color:#ccc;cursor:pointer;font-weight:bold;white-space:nowrap;">✕</button>
+
+        <label class="section">🔎 CANDIDATO</label>
+        <div class="input-row">
+            <input type="text" id="search-candidate" list="candidate-list" placeholder="Filtrar por candidato..." style="flex:1;">
+            <button id="clear-filter" title="Limpar filtro">✕</button>
         </div>
         <datalist id="candidate-list">{cand_opts}</datalist>
-        <button id="toggle-volatile" style="width:100%;padding:8px;font-size:12px;border:1px solid #ff3333;border-radius:6px;background:rgba(255,51,51,0.15);color:#ff4d4d;cursor:pointer;font-weight:bold;">🔴 ZONAS VOLÁTEIS ({int(df['IS_VOLATIL'].sum())})</button>
+
+        <label class="section">⚡ ZONA DE RISCO</label>
+        <div class="volatile-toggle" id="volatile-toggle-div" onclick="toggleVolatile()">
+            <div class="check"></div>
+            <span>ZONAS DE ALTA VOLATILIDADE ({qtd_volateis})</span>
+        </div>
     </div>"""
 
-    script_search = f"""
+    script_sidebar = f"""
 var cityCoords = {json.dumps(coords_muni)};
-document.getElementById('search-city').addEventListener('change', function(e) {{
-    var cityName = e.target.value.toUpperCase().trim();
-    if (cityCoords[cityName]) {{
-        var leafletMap = window['{map_var}'];
-        if (leafletMap) {{
-            leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
-        }}
-    }}
-}});
-
 var locationCandidates = {json.dumps(locais_candidatos)};
 var volatileLookup = {json.dumps(volatile_lookup)};
+
+function toggleSidebar() {{
+    var sb = document.getElementById('control-sidebar');
+    sb.classList.toggle('open');
+}}
 
 function getLocKeyFromLayer(layer) {{
     var tooltip = layer.getTooltip();
@@ -172,6 +263,16 @@ function getLocKeyFromLayer(layer) {{
     var muniName = content.substring(idx + 2, content.length - 1);
     return muniName + '|' + locName;
 }}
+
+document.getElementById('search-city').addEventListener('change', function(e) {{
+    var cityName = e.target.value.toUpperCase().trim();
+    if (cityCoords[cityName]) {{
+        var leafletMap = window['{map_var}'];
+        if (leafletMap) {{
+            leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
+        }}
+    }}
+}});
 
 function highlightCandidate(candidateName) {{
     var leafletMap = window['{map_var}'];
@@ -233,6 +334,10 @@ document.getElementById('search-candidate').addEventListener('change', function(
 
 document.getElementById('clear-filter').addEventListener('click', function() {{
     resetFilter();
+    var cb = document.getElementById('volatile-toggle-div');
+    if (cb.classList.contains('active')) {{
+        cb.classList.remove('active');
+    }}
 }});
 
 document.getElementById('search-candidate').addEventListener('keypress', function(e) {{
@@ -241,20 +346,17 @@ document.getElementById('search-candidate').addEventListener('keypress', functio
     }}
 }});
 
-var volatileActive = false;
-document.getElementById('toggle-volatile').addEventListener('click', function() {{
-    volatileActive = !volatileActive;
-    var btn = document.getElementById('toggle-volatile');
+function toggleVolatile() {{
+    var div = document.getElementById('volatile-toggle-div');
     var leafletMap = window['{map_var}'];
     if (!leafletMap) return;
-    if (volatileActive) {{
-        btn.style.background = 'rgba(255,51,51,0.4)';
-        btn.style.border = '1px solid #ff0000';
-        btn.style.color = '#fff';
-        leafletMap.eachLayer(function(layer) {{
-            if (!layer.getLatLng || !layer.setIcon) return;
-            var key = getLocKeyFromLayer(layer);
-            var isVolatil = volatileLookup[key] || false;
+    div.classList.toggle('active');
+    var isActive = div.classList.contains('active');
+    leafletMap.eachLayer(function(layer) {{
+        if (!layer.getLatLng || !layer.setIcon) return;
+        var key = getLocKeyFromLayer(layer);
+        var isVolatil = volatileLookup[key] || false;
+        if (isActive) {{
             if (isVolatil) {{
                 layer.setOpacity(1.0);
                 layer.setIcon(L.icon({{
@@ -268,18 +370,23 @@ document.getElementById('toggle-volatile').addEventListener('click', function() 
             }} else {{
                 layer.setOpacity(0.1);
             }}
-        }});
-    }} else {{
-        btn.style.background = 'rgba(255,51,51,0.15)';
-        btn.style.border = '1px solid #ff3333';
-        btn.style.color = '#ff4d4d';
-        resetFilter();
-    }}
-}});
+        }} else {{
+            layer.setOpacity(1.0);
+            layer.setIcon(L.icon({{
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + (isVolatil ? 'red' : 'blue') + '.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            }}));
+        }}
+    }});
+}}
 """
 
-    mapa.get_root().html.add_child(Element(html_search))
-    mapa.get_root().script.add_child(Element(script_search))
+    mapa.get_root().html.add_child(Element(html_sidebar))
+    mapa.get_root().script.add_child(Element(script_sidebar))
 
     print(f"  -> {len(df)} marcadores adicionados")
     return mapa
