@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import folium
 from folium import Html, Popup
@@ -110,6 +111,36 @@ def criar_mapa(df: pd.DataFrame) -> folium.Map:
     map_var = mapa.get_name()
     html_painel = gerar_painel_top10(df, map_var)
     mapa.get_root().html.add_child(folium.Element(html_painel))
+
+    coords_muni = {}
+    for nome, grupo in df.groupby("NM_MUNICIPIO"):
+        coords_muni[nome] = [grupo["NR_LATITUDE"].mean(), grupo["NR_LONGITUDE"].mean()]
+
+    opts = "".join(f'<option value="{n}">' for n in sorted(coords_muni))
+
+    html_search = f"""
+    <div id="search-bar-container" style="position:absolute;top:15px;left:50%;transform:translateX(-50%);z-index:9999;width:320px;max-width:90vw;">
+        <input type="text" id="search-city" list="city-list" placeholder="🔍 Buscar Município..."
+            style="width:100%;padding:12px 16px;font-size:14px;border:1px solid #00ffcc;border-radius:8px;background:rgba(18,18,24,0.92);color:#fff;outline:none;box-shadow:0 4px 24px rgba(0,0,0,0.6);box-sizing:border-box;">
+        <datalist id="city-list">{opts}</datalist>
+    </div>"""
+
+    script_search = f"""
+    <script>
+    var cityCoords = {json.dumps(coords_muni)};
+    document.getElementById('search-city').addEventListener('change', function(e) {{
+        var cityName = e.target.value.toUpperCase().trim();
+        if (cityCoords[cityName]) {{
+            var leafletMap = window['{map_var}'];
+            if (leafletMap) {{
+                leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
+            }}
+        }}
+    }});
+    </script>"""
+
+    mapa.get_root().html.add_child(folium.Element(html_search))
+    mapa.get_root().script.add_child(folium.Element(script_search))
 
     print(f"  -> {len(df)} marcadores adicionados")
     return mapa
