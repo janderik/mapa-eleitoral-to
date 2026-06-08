@@ -2,15 +2,19 @@
     var MAP_POLL_MS = 80;
     var MAX_ATTEMPTS = 60;
 
+    function stripHtmlAndTrim(str) {
+        return str.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
     function getPopupText(marker) {
         var popup = marker.getPopup();
         if (!popup) return '';
         var content = popup.getContent();
         if (!content) return '';
-        if (typeof content === 'string') return content;
-        if (content.outerHTML) return content.outerHTML;
-        if (content.innerHTML) return content.innerHTML;
-        if (content.textContent) return content.textContent;
+        if (typeof content === 'string') return stripHtmlAndTrim(content);
+        if (content.outerHTML) return stripHtmlAndTrim(content.outerHTML);
+        if (content.innerHTML) return stripHtmlAndTrim(content.innerHTML);
+        if (content.textContent) return content.textContent.trim();
         return content.toString ? content.toString() : '';
     }
 
@@ -135,8 +139,9 @@
             var tooltip = marker.getTooltip();
             if (!tooltip) return '';
             var content = tooltip.getContent();
-            if (typeof content === 'string') return content;
-            if (content && content.textContent) return content.textContent;
+            if (!content) return '';
+            if (typeof content === 'string') return stripHtmlAndTrim(content);
+            if (content && content.textContent) return content.textContent.trim();
             return '';
         }
 
