@@ -51,6 +51,106 @@
             }
         });
 
+        // ===== HELPER FUNCTIONS =====
+        function parseTooltip(tt) {
+            var idx = tt.indexOf(' (');
+            if (idx === -1) return { local: tt, municipio: '' };
+            return { local: tt.substring(0, idx), municipio: tt.substring(idx + 2, tt.length - 1) };
+        }
+
+        function getVisibleMarkers() {
+            var seen = {}, result = [];
+            allMarkers.forEach(function (m) {
+                if (!mapInstance.hasLayer(m)) return;
+                var tt = getTooltipText(m);
+                if (!seen[tt] && window.markerData && window.markerData[tt]) {
+                    seen[tt] = true;
+                    result.push(m);
+                }
+            });
+            return result;
+        }
+
+        function atualizarMetricas() {
+            var painel = document.getElementById('painel-metricas');
+            if (!painel) return;
+            var visiveis = getVisibleMarkers();
+            if (visiveis.length === 0) {
+                painel.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">Nenhum local visível</div>';
+                return;
+            }
+
+            var totalEleitores = 0;
+            var volCount = 0;
+            var maiorLocal = null, maiorTotal = 0;
+            var menorLocal = null, menorTotal = Infinity;
+            var generos = {};
+
+            visiveis.forEach(function (m) {
+                var tt = getTooltipText(m);
+                var d = window.markerData[tt];
+                totalEleitores += d.total;
+                if (d.is_volatil) volCount++;
+                if (d.total > maiorTotal) { maiorTotal = d.total; maiorLocal = tt; }
+                if (d.total < menorTotal) { menorTotal = d.total; menorLocal = tt; }
+                if (d.generos) {
+                    for (var g in d.generos) {
+                        if (d.generos.hasOwnProperty(g)) {
+                            generos[g] = (generos[g] || 0) + d.generos[g];
+                        }
+                    }
+                }
+            });
+
+            var totalLocais = visiveis.length;
+            var media = Math.round(totalEleitores / totalLocais);
+            var stdCount = totalLocais - volCount;
+            var pctVol = totalLocais > 0 ? ((volCount / totalLocais) * 100).toFixed(1) : '0.0';
+
+            var pMaior = maiorLocal ? parseTooltip(maiorLocal) : { local: '-', municipio: '' };
+            var pMenor = menorLocal ? parseTooltip(menorLocal) : { local: '-', municipio: '' };
+
+            html = '<div style="font-weight:700;color:var(--cor-primaria,#00ffcc);margin-bottom:8px;">📊 MÉTRICAS</div>';
+            html += '<div style="margin-bottom:8px;">';
+            html += '<div>👥 Total: <strong style="color:#fff;">' + totalEleitores.toLocaleString() + '</strong> eleitores</div>';
+            html += '<div>📍 Locais: <strong style="color:#fff;">' + totalLocais + '</strong> visíveis</div>';
+            html += '<div>📊 Média: <strong style="color:#fff;">' + media.toLocaleString() + '</strong> por local</div>';
+            html += '</div>';
+
+            var genKeys = Object.keys(generos);
+            if (genKeys.length > 0) {
+                html += '<div style="font-size:11px;color:#aaa;margin-bottom:4px;">🚻 GÊNERO</div>';
+                var ordem = ['FEMININO', 'MASCULINO', 'NÃO INFORMADO'];
+                ordem.forEach(function (g) {
+                    if (generos[g] === undefined) return;
+                    var pct = ((generos[g] / totalEleitores) * 100).toFixed(1);
+                    var cor = g === 'FEMININO' ? '#e84393' : (g === 'MASCULINO' ? '#0984e3' : '#636e72');
+                    html += '<div style="margin-bottom:3px;">';
+                    html += '<div style="display:flex;justify-content:space-between;font-size:11px;">';
+                    html += '<span>' + g.charAt(0) + g.substring(1).toLowerCase() + '</span>';
+                    html += '<span style="color:' + cor + ';font-weight:600;">' + pct + '%</span>';
+                    html += '</div>';
+                    html += '<div style="background:#333;border-radius:3px;height:6px;margin-top:1px;">';
+                    html += '<div style="width:' + pct + '%;background:' + cor + ';height:6px;border-radius:3px;"></div>';
+                    html += '</div></div>';
+                });
+            }
+
+            html += '<div style="margin-top:6px;font-size:11px;color:#aaa;">⚡ VOLATILIDADE</div>';
+            html += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:2px;">';
+            html += '<span>Estáveis: <strong style="color:#2ecc71;">' + stdCount + '</strong> (' + (100 - parseFloat(pctVol)).toFixed(1) + '%)</span>';
+            html += '<span>Voláteis: <strong style="color:#e74c3c;">' + volCount + '</strong> (' + pctVol + '%)</span>';
+            html += '</div>';
+
+            html += '<div style="margin-top:8px;padding-top:6px;border-top:1px solid #333;font-size:11px;">';
+            html += '<div style="color:#aaa;margin-bottom:3px;">📈 RANKING</div>';
+            html += '<div>🟢 Maior: <strong style="color:#fff;">' + pMaior.local + '</strong> (' + pMaior.municipio + ') — <strong style="color:var(--cor-primaria,#00ffcc);">' + maiorTotal.toLocaleString() + '</strong></div>';
+            html += '<div>🔴 Menor: <strong style="color:#fff;">' + pMenor.local + '</strong> (' + pMenor.municipio + ') — <strong style="color:var(--cor-primaria,#00ffcc);">' + menorTotal.toLocaleString() + '</strong></div>';
+            html += '</div>';
+
+            painel.innerHTML = html;
+        }
+
         // ===== CITY SEARCH (flyTo) =====
         var searchCity = document.getElementById('search-city');
         if (searchCity) {
@@ -89,7 +189,9 @@
             if (!anyMatch) {
                 limparFiltro();
                 alert('Nenhum local encontrado com vota\u00e7\u00f5es para este candidato.');
+                return;
             }
+            atualizarMetricas();
         }
 
         function limparFiltro() {
@@ -100,6 +202,7 @@
                 }
                 marker.setOpacity(1.0);
             });
+            atualizarMetricas();
         }
 
         if (inputCandidato) {
@@ -125,6 +228,7 @@
                 } else {
                     mapInstance.removeLayer(fg);
                 }
+                atualizarMetricas();
             });
         }
 
@@ -436,6 +540,7 @@
             });
             mapInstance.addLayer(cmpGroup);
             allMarkers.forEach(function (m) { m.setOpacity(0.12); });
+            atualizarMetricas();
 
             var totalGeral = data.ganhaA + data.ganhaB + data.empate;
             var pctA = totalGeral > 0 ? ((data.ganhaA / totalGeral) * 100).toFixed(1) : 0;
@@ -465,6 +570,7 @@
             cmpAtivo = false;
             cmpResultado.style.display = 'none';
             allMarkers.forEach(function (m) { m.setOpacity(1.0); });
+            atualizarMetricas();
         }
 
         if (btnComparar) {
@@ -496,6 +602,8 @@
             if (body) body.style.display = 'none';
             if (btnToggle) btnToggle.textContent = '+';
         }
+
+        atualizarMetricas();
     }
 
     // Poll until the Folium map is available

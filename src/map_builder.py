@@ -99,6 +99,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             "lat": lat,
             "lng": lng,
             "is_volatil": bool(row.get("IS_VOLATIL")),
+            "generos": {g: int(row[g]) if pd.notna(row[g]) else 0 for g in generos},
         }
 
         folium.Marker(
@@ -179,6 +180,8 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     <button id="sidebar-toggle">⚙️ FILTROS</button>
     <div id="control-sidebar">
         <h2>INTELIGÊNCIA TÁTICA</h2>
+
+        <div id="painel-metricas" style="padding:10px;background:#1a1a22;border:1px solid #333;border-radius:6px;margin-bottom:14px;font-size:12px;line-height:1.7;"></div>
 
         <label class="section">🔍 MUNICÍPIO</label>
         <input type="text" id="search-city" list="city-list" placeholder="Buscar município...">
