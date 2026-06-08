@@ -76,7 +76,7 @@
             if (!painel) return;
             var visiveis = getVisibleMarkers();
             if (visiveis.length === 0) {
-                painel.innerHTML = '<div style="color:#888;text-align:center;padding:10px;">Nenhum local visível</div>';
+                painel.innerHTML = '<div style="color:#bbb;text-align:center;padding:10px;">Nenhum local visível</div>';
                 return;
             }
 
@@ -119,12 +119,12 @@
 
             var genKeys = Object.keys(generos);
             if (genKeys.length > 0) {
-                html += '<div style="font-size:11px;color:#aaa;margin-bottom:4px;">🚻 GÊNERO</div>';
+                html += '<div style="font-size:11px;color:#ccc;margin-bottom:4px;">🚻 GÊNERO</div>';
                 var ordem = ['FEMININO', 'MASCULINO', 'NÃO INFORMADO'];
                 ordem.forEach(function (g) {
                     if (generos[g] === undefined) return;
                     var pct = ((generos[g] / totalEleitores) * 100).toFixed(1);
-                    var cor = g === 'FEMININO' ? '#e84393' : (g === 'MASCULINO' ? '#0984e3' : '#636e72');
+                    var cor = g === 'FEMININO' ? '#e84393' : (g === 'MASCULINO' ? '#0984e3' : '#95a5a6');
                     html += '<div style="margin-bottom:3px;">';
                     html += '<div style="display:flex;justify-content:space-between;font-size:11px;">';
                     html += '<span>' + g.charAt(0) + g.substring(1).toLowerCase() + '</span>';
@@ -136,14 +136,14 @@
                 });
             }
 
-            html += '<div style="margin-top:6px;font-size:11px;color:#aaa;">⚡ VOLATILIDADE</div>';
+            html += '<div style="margin-top:6px;font-size:11px;color:#ccc;">⚡ VOLATILIDADE</div>';
             html += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:2px;">';
             html += '<span>Estáveis: <strong style="color:#2ecc71;">' + stdCount + '</strong> (' + (100 - parseFloat(pctVol)).toFixed(1) + '%)</span>';
             html += '<span>Voláteis: <strong style="color:#e74c3c;">' + volCount + '</strong> (' + pctVol + '%)</span>';
             html += '</div>';
 
             html += '<div style="margin-top:8px;padding-top:6px;border-top:1px solid #333;font-size:11px;">';
-            html += '<div style="color:#aaa;margin-bottom:3px;">📈 RANKING</div>';
+            html += '<div style="color:#ccc;margin-bottom:3px;">📈 RANKING</div>';
             html += '<div>🟢 Maior: <strong style="color:#fff;">' + pMaior.local + '</strong> (' + pMaior.municipio + ') — <strong style="color:var(--cor-primaria,#00ffcc);">' + maiorTotal.toLocaleString() + '</strong></div>';
             html += '<div>🔴 Menor: <strong style="color:#fff;">' + pMenor.local + '</strong> (' + pMenor.municipio + ') — <strong style="color:var(--cor-primaria,#00ffcc);">' + menorTotal.toLocaleString() + '</strong></div>';
             html += '</div>';

@@ -126,10 +126,14 @@ body, html {
     text-align: center;
 }
 
+#control-sidebar {
+    color: #ddd;
+}
+
 #control-sidebar label.section {
-    color: #888;
+    color: #bbb;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 1.5px;
     margin-bottom: 2px;
     text-transform: uppercase;
@@ -163,7 +167,7 @@ body, html {
     border: 1px solid #666;
     border-radius: 6px;
     background: rgba(0,0,0,0.4);
-    color: #ccc;
+    color: #eee;
     cursor: pointer;
     font-weight: bold;
     white-space: nowrap;
