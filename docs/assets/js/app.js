@@ -59,9 +59,10 @@
         }
 
         function getVisibleMarkers() {
-            var seen = {}, result = [];
+            var seen = {}, result = [], bounds = mapInstance.getBounds();
             allMarkers.forEach(function (m) {
                 if (!mapInstance.hasLayer(m)) return;
+                if (!bounds.contains(m.getLatLng())) return;
                 var tt = getTooltipText(m);
                 if (!seen[tt] && window.markerData && window.markerData[tt]) {
                     seen[tt] = true;
@@ -110,7 +111,25 @@
             var pMaior = maiorLocal ? parseTooltip(maiorLocal) : { local: '-', municipio: '' };
             var pMenor = menorLocal ? parseTooltip(menorLocal) : { local: '-', municipio: '' };
 
+            var munisVisiveis = {}, munisList = [];
+            visiveis.forEach(function (m) {
+                var tt = getTooltipText(m);
+                var p = parseTooltip(tt);
+                if (p.municipio && !munisVisiveis[p.municipio]) {
+                    munisVisiveis[p.municipio] = true;
+                    munisList.push(p.municipio);
+                }
+            });
+            var labelRegiao = '';
+            if (munisList.length === 0) labelRegiao = '';
+            else if (munisList.length === 1) labelRegiao = munisList[0];
+            else if (munisList.length <= 3) labelRegiao = munisList.join(', ');
+            else labelRegiao = munisList.length + ' municípios';
+
             html = '<div style="font-weight:700;color:var(--cor-primaria,#00ffcc);margin-bottom:8px;">📊 MÉTRICAS</div>';
+            if (labelRegiao) {
+                html += '<div style="font-size:11px;color:#999;margin-bottom:6px;border-bottom:1px solid #2a2a2a;padding-bottom:6px;">📍 ' + labelRegiao + '</div>';
+            }
             html += '<div style="margin-bottom:8px;">';
             html += '<div>👥 Total: <strong style="color:#fff;">' + totalEleitores.toLocaleString() + '</strong> eleitores</div>';
             html += '<div>📍 Locais: <strong style="color:#fff;">' + totalLocais + '</strong> visíveis</div>';
@@ -602,6 +621,10 @@
             if (body) body.style.display = 'none';
             if (btnToggle) btnToggle.textContent = '+';
         }
+
+        mapInstance.on('moveend', function () {
+            atualizarMetricas();
+        });
 
         atualizarMetricas();
     }
