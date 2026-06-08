@@ -60,6 +60,10 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         name="OpenStreetMap (Padrão)",
     )
 
+    mapa.get_root().header.add_child(folium.Element(
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />'
+    ))
+
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         attr="Esri",
