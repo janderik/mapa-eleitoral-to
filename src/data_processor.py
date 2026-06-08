@@ -103,11 +103,18 @@ def processar_votacao(df_principal: pd.DataFrame) -> pd.DataFrame:
             if pd.notna(nome):
                 candidatos_locais.add(str(nome).strip())
 
+        votos_prefeito = {}
+        for _, r in df_pref.iterrows():
+            nome_cand = str(r["NM_VOTAVEL"]).strip()
+            if nome_cand.upper() not in ("VOTO BRANCO", "VOTO NULO", "VOTO BRANCO/NULO"):
+                votos_prefeito[nome_cand] = int(r["QT_VOTOS"])
+
         historico.append({
             "NM_MUNICIPIO": m,
             "NM_LOCAL_VOTACAO": l,
             "IS_VOLATIL": is_volatil,
             "CANDIDATOS_LIST": json.dumps(sorted(candidatos_locais)),
+            "VOTOS_POR_CANDIDATO": json.dumps(votos_prefeito),
             "HTML_CANDIDATOS": gerar_html_candidatos(g2024, g2022),
         })
 
@@ -133,7 +140,8 @@ def colunas_genero(df: pd.DataFrame) -> list:
     from typing import List
     base = {"NM_MUNICIPIO", "NM_LOCAL_VOTACAO", "DS_ENDERECO", "NM_BAIRRO",
             "NR_CEP", "NR_LATITUDE", "NR_LONGITUDE", "TOTAL",
-            "HTML_CANDIDATOS", "IS_VOLATIL", "CANDIDATOS_LIST"}
+            "HTML_CANDIDATOS", "IS_VOLATIL", "CANDIDATOS_LIST",
+            "VOTOS_POR_CANDIDATO"}
     cols = [c for c in df.columns if c not in base]
     preferidas = ["FEMININO", "MASCULINO", "NÃO INFORMADO"]
     ordenadas = [g for g in preferidas if g in cols]

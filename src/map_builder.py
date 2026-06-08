@@ -152,6 +152,17 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
     qtd_volateis = int(df['IS_VOLATIL'].sum())
 
+    votos_por_local = {}
+    for _, row in df.iterrows():
+        tt = f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})"
+        raw = row.get("VOTOS_POR_CANDIDATO", "{}")
+        votos_por_local[tt] = json.loads(raw) if isinstance(raw, str) else {}
+
+    opts_candidatos = "".join(
+        f'<option value="{c.replace(chr(34), "&quot;").replace(chr(39), "&#39;")}">{c}</option>'
+        for c in (candidatos_list or [])
+    )
+
     mapa.get_root().html.add_child(Element('<link rel="stylesheet" href="assets/css/style.css">'))
 
     css_vars = f"""<style>
@@ -197,6 +208,21 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         </div>
         <div id="raio-info" style="display:none;padding:10px;background:#1e1e24;border:1px solid var(--cor-primaria,#00ffcc);border-radius:6px;color:#cfcfcf;font-size:12px;line-height:1.6;"></div>
 
+        <label class="section">⚔️ COMPARATIVO A vs B</label>
+        <select id="cmp-cand-a" style="width:100%;padding:10px 14px;font-size:13px;border:1px solid #333;border-radius:6px;background:rgba(0,0,0,0.4);color:#fff;outline:none;box-sizing:border-box;margin-bottom:6px;">
+            <option value="">— Candidato A —</option>
+            {opts_candidatos}
+        </select>
+        <select id="cmp-cand-b" style="width:100%;padding:10px 14px;font-size:13px;border:1px solid #333;border-radius:6px;background:rgba(0,0,0,0.4);color:#fff;outline:none;box-sizing:border-box;margin-bottom:8px;">
+            <option value="">— Candidato B —</option>
+            {opts_candidatos}
+        </select>
+        <div class="input-row">
+            <button id="btn-comparar" style="flex:1;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid var(--cor-primaria,#00ffcc);border-radius:6px;background:transparent;color:var(--cor-primaria,#00ffcc);cursor:pointer;">COMPARAR</button>
+            <button id="btn-limpar-cmp" style="padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid #666;border-radius:6px;background:transparent;color:#999;cursor:pointer;">✕</button>
+        </div>
+        <div id="cmp-resultado" style="display:none;padding:10px;background:#1e1e24;border:1px solid var(--cor-primaria,#00ffcc);border-radius:6px;color:#cfcfcf;font-size:12px;line-height:1.6;"></div>
+
         <label class="section">📄 RELATÓRIO</label>
         <button id="btn-exportar" style="width:100%;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid var(--cor-primaria,#00ffcc);border-radius:6px;background:transparent;color:var(--cor-primaria,#00ffcc);cursor:pointer;">EXPORTAR RELATÓRIO</button>
     </div>"""
@@ -204,6 +230,8 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     script_data = f"""<script>
 var cityCoords = {json.dumps(coords_muni)};
 var markerData = {json.dumps(marker_data)};
+var votosPorLocal = {json.dumps(votos_por_local)};
+var candidatosList = {json.dumps(candidatos_list or [])};
 var fgVolatilName = '{fg_volatil_var}';
 var fgStandardName = '{fg_standard_var}';
 </script>"""

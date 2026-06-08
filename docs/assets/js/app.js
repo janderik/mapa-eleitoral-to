@@ -339,6 +339,144 @@
             btnExportar.addEventListener('click', exportarRelatorio);
         }
 
+        // ===== COMPARATIVO A vs B =====
+        var cmpGroup = null, cmpAtivo = false;
+        var cmpSelectA = document.getElementById('cmp-cand-a');
+        var cmpSelectB = document.getElementById('cmp-cand-b');
+        var btnComparar = document.getElementById('btn-comparar');
+        var btnLimparCmp = document.getElementById('btn-limpar-cmp');
+        var cmpResultado = document.getElementById('cmp-resultado');
+
+        function buildUniqueMarkers() {
+            var seen = {}, result = [];
+            allMarkers.forEach(function (m) {
+                var tt = getTooltipText(m);
+                if (!seen[tt] && window.markerData && window.markerData[tt]) {
+                    seen[tt] = true;
+                    result.push(m);
+                }
+            });
+            return result;
+        }
+
+        function corPorCandidato() {
+            var candA = cmpSelectA.value.trim();
+            var candB = cmpSelectB.value.trim();
+            if (!candA || !candB || candA === candB) return null;
+            var unicos = buildUniqueMarkers();
+            var ganhaA = 0, ganhaB = 0, empate = 0, semDados = 0;
+            var totalVotosA = 0, totalVotosB = 0;
+            var resultados = [];
+
+            unicos.forEach(function (m) {
+                var tt = getTooltipText(m);
+                var votos = window.votosPorLocal && window.votosPorLocal[tt];
+                var vA = votos && votos[candA] !== undefined ? votos[candA] : undefined;
+                var vB = votos && votos[candB] !== undefined ? votos[candB] : undefined;
+                if (vA === undefined && vB === undefined) { semDados++; return; }
+                var latlng = m.getLatLng();
+                var cor, vencedor;
+                if (vA !== undefined && vB !== undefined) {
+                    if (vA > vB) { cor = '#2ecc71'; vencedor = candA; ganhaA++; totalVotosA += vA; }
+                    else if (vB > vA) { cor = '#3498db'; vencedor = candB; ganhaB++; totalVotosB += vB; }
+                    else { cor = '#95a5a6'; vencedor = 'Empate'; empate++; }
+                } else if (vA !== undefined) {
+                    cor = '#2ecc71'; vencedor = candA; ganhaA++; totalVotosA += vA;
+                } else {
+                    cor = '#3498db'; vencedor = candB; ganhaB++; totalVotosB += vB;
+                }
+                resultados.push({ latlng: latlng, cor: cor, tt: tt, vencedor: vencedor });
+            });
+            return { resultados: resultados, candA: candA, candB: candB, ganhaA: ganhaA, ganhaB: ganhaB, empate: empate, semDados: semDados, totalVotosA: totalVotosA, totalVotosB: totalVotosB };
+        }
+
+        function getRawPopupContent(marker) {
+            var popup = marker.getPopup();
+            if (!popup) return '';
+            var content = popup.getContent();
+            if (!content) return '';
+            if (typeof content === 'string') return content;
+            if (content.outerHTML) return content.outerHTML;
+            return '';
+        }
+
+        function iniciarComparativo() {
+            if (cmpGroup) { mapInstance.removeLayer(cmpGroup); cmpGroup = null; }
+            var data = corPorCandidato();
+            if (!data) { alert('Selecione dois candidatos diferentes para comparar.'); return; }
+            cmpAtivo = true;
+            cmpGroup = L.featureGroup();
+
+            var ttToMarker = {};
+            allMarkers.forEach(function (m) {
+                var tt = getTooltipText(m);
+                if (!ttToMarker[tt]) ttToMarker[tt] = m;
+            });
+
+            data.resultados.forEach(function (r) {
+                var original = ttToMarker[r.tt];
+                var cm = L.circleMarker(r.latlng, {
+                    radius: 9,
+                    color: r.cor,
+                    fillColor: r.cor,
+                    fillOpacity: 0.85,
+                    weight: 2,
+                    opacity: 1,
+                });
+                if (original) {
+                    var pc = getRawPopupContent(original);
+                    if (pc) cm.bindPopup(pc, { maxWidth: 380 });
+                    var tooltip = original.getTooltip();
+                    if (tooltip) {
+                        var tc = tooltip.getContent();
+                        if (tc) cm.bindTooltip(tc);
+                    }
+                }
+                cmpGroup.addLayer(cm);
+            });
+            mapInstance.addLayer(cmpGroup);
+            allMarkers.forEach(function (m) { m.setOpacity(0.12); });
+
+            var totalGeral = data.ganhaA + data.ganhaB + data.empate;
+            var pctA = totalGeral > 0 ? ((data.ganhaA / totalGeral) * 100).toFixed(1) : 0;
+            var pctB = totalGeral > 0 ? ((data.ganhaB / totalGeral) * 100).toFixed(1) : 0;
+            var largA = Math.max(parseFloat(pctA), 3);
+            var largB = Math.max(parseFloat(pctB), 3);
+
+            cmpResultado.style.display = 'block';
+            cmpResultado.innerHTML =
+                '<div style="font-weight:700;color:var(--cor-primaria,#00ffcc);margin-bottom:8px;">⚔️ COMPARATIVO</div>' +
+                '<div style="margin-bottom:8px;"><span style="color:#2ecc71;font-weight:700;">' + data.candA + '</span> vence em <strong>' + data.ganhaA + '</strong> locais</div>' +
+                '<div style="height:20px;background:#333;border-radius:4px;overflow:hidden;margin-bottom:6px;display:flex;position:relative;">' +
+                '<div style="width:' + largA + '%;background:#2ecc71;height:20px;transition:width .3s;text-align:center;font-size:10px;line-height:20px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;">' + data.ganhaA + '</div>' +
+                '<div style="flex:1;"></div>' +
+                '</div>' +
+                '<div style="margin-bottom:8px;"><span style="color:#3498db;font-weight:700;">' + data.candB + '</span> vence em <strong>' + data.ganhaB + '</strong> locais</div>' +
+                '<div style="height:20px;background:#333;border-radius:4px;overflow:hidden;margin-bottom:6px;display:flex;position:relative;">' +
+                '<div style="flex:1;"></div>' +
+                '<div style="width:' + largB + '%;background:#3498db;height:20px;transition:width .3s;text-align:center;font-size:10px;line-height:20px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;">' + data.ganhaB + '</div>' +
+                '</div>' +
+                (data.empate > 0 ? '<div style="color:#95a5a6;">Empates: <strong>' + data.empate + '</strong></div>' : '') +
+                (data.semDados > 0 ? '<div style="color:#666;font-size:11px;">Sem dados: ' + data.semDados + ' locais</div>' : '');
+        }
+
+        function limparComparativo() {
+            if (cmpGroup) { mapInstance.removeLayer(cmpGroup); cmpGroup = null; }
+            cmpAtivo = false;
+            cmpResultado.style.display = 'none';
+            allMarkers.forEach(function (m) { m.setOpacity(1.0); });
+        }
+
+        if (btnComparar) {
+            btnComparar.addEventListener('click', function () {
+                if (cmpAtivo) limparComparativo();
+                iniciarComparativo();
+            });
+        }
+        if (btnLimparCmp) {
+            btnLimparCmp.addEventListener('click', limparComparativo);
+        }
+
         // ===== TOP 10 TOGGLE =====
         window.toggleTop10 = function () {
             var body = document.getElementById('top10-body');
