@@ -228,6 +228,9 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
         <label class="section">📄 RELATÓRIO</label>
         <button id="btn-exportar" style="width:100%;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid var(--cor-primaria,#00ffcc);border-radius:6px;background:transparent;color:var(--cor-primaria,#00ffcc);cursor:pointer;">EXPORTAR RELATÓRIO</button>
+
+        <label class="section">🎯 APRESENTAÇÃO</label>
+        <button id="btn-apresentacao" style="width:100%;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid #666;border-radius:6px;background:transparent;color:#ccc;cursor:pointer;">⛶ MODO APRESENTAÇÃO</button>
     </div>"""
 
     script_data = f"""<script>

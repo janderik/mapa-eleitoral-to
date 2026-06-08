@@ -602,6 +602,50 @@
             btnLimparCmp.addEventListener('click', limparComparativo);
         }
 
+        // ===== MODO APRESENTAÇÃO =====
+        var modoApres = false;
+        var btnApres = document.getElementById('btn-apresentacao');
+        var btnSairApres = null;
+        var sbToggle = document.getElementById('sidebar-toggle');
+
+        function entrarApresentacao() {
+            if (modoApres) return;
+            modoApres = true;
+            document.body.classList.add('modo-apresentacao');
+            if (sb && sb.classList.contains('open')) {
+                sb.classList.remove('open');
+                if (sbToggle) sbToggle.textContent = '\u2699\ufe0f FILTROS';
+            }
+            if (!btnSairApres) {
+                btnSairApres = document.createElement('button');
+                btnSairApres.id = 'btn-sair-apresentacao';
+                btnSairApres.textContent = '✕ SAIR';
+                btnSairApres.addEventListener('click', sairApresentacao);
+                mapInstance.getContainer().appendChild(btnSairApres);
+            }
+            btnSairApres.style.display = 'block';
+            if (btnApres) btnApres.textContent = '✅ APRESENTAÇÃO ATIVA';
+        }
+
+        function sairApresentacao() {
+            if (!modoApres) return;
+            modoApres = false;
+            document.body.classList.remove('modo-apresentacao');
+            if (btnSairApres) btnSairApres.style.display = 'none';
+            if (btnApres) btnApres.textContent = '⛶ MODO APRESENTAÇÃO';
+        }
+
+        if (btnApres) {
+            btnApres.addEventListener('click', function () {
+                if (modoApres) sairApresentacao();
+                else entrarApresentacao();
+            });
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modoApres) sairApresentacao();
+        });
+
         // ===== TOP 10 TOGGLE =====
         window.toggleTop10 = function () {
             var body = document.getElementById('top10-body');
