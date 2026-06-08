@@ -222,75 +222,117 @@
 
         // ===== EXPORTAR RELATÓRIO =====
         var btnExportar = document.getElementById('btn-exportar');
-        function exportarRelatorio() {
-            var nomeCandidato = getComputedStyle(document.documentElement).getPropertyValue('--nome-candidato').replace(/"/g,'').trim() || 'NÃO CONFIGURADO';
-            var totalGeral = 0;
-            var stdCount = 0, volCount = 0;
+
+        function buildUniqueMarkers() {
+            var seen = {}, result = [];
             allMarkers.forEach(function (m) {
                 var tt = getTooltipText(m);
-                if (window.markerData && window.markerData[tt]) {
-                    totalGeral += window.markerData[tt].total;
-                    if (window.markerData[tt].is_volatil) volCount++;
-                    else stdCount++;
+                if (!seen[tt] && window.markerData && window.markerData[tt]) {
+                    seen[tt] = true;
+                    result.push(m);
                 }
             });
+            return result;
+        }
 
-            var raioContent = '';
-            if (raioCircle && raioInfo.style.display === 'block') {
-                raioContent = raioInfo.innerHTML.replace(/<strong[^>]*>/g,'**').replace(/<\/strong>/g,'**').replace(/<br>/g,'\n');
-            }
+        function parseTooltip(tt) {
+            var idx = tt.indexOf(' (');
+            if (idx === -1) return { local: tt, municipio: '' };
+            return { local: tt.substring(0, idx), municipio: tt.substring(idx + 2, tt.length - 1) };
+        }
 
-            var printWin = window.open('','_blank','width=800,height=600');
-            printWin.document.write('<!DOCTYPE html><html><head><title>Relatório Eleitoral</title>');
-            printWin.document.write('<style>');
-            printWin.document.write('body{font-family:Arial,sans-serif;padding:40px;color:#222;}');
-            printWin.document.write('h1{color:#00e676;border-bottom:2px solid #00e676;padding-bottom:10px;}');
-            printWin.document.write('h2{color:#333;margin-top:30px;}');
-            printWin.document.write('table{width:100%;border-collapse:collapse;margin:15px 0;}');
-            printWin.document.write('th,td{border:1px solid #ccc;padding:8px 12px;text-align:left;}');
-            printWin.document.write('th{background:#00e676;color:#fff;}');
-            printWin.document.write('.destaque{font-weight:700;color:#00e676;}');
-            printWin.document.write('.info{background:#f9f9f9;padding:15px;border-radius:6px;margin:15px 0;}');
-            printWin.document.write('.info pre{white-space:pre-wrap;font-family:inherit;margin:0;}');
-            printWin.document.write('@media print{body{padding:20px;}button{display:none;}}');
-            printWin.document.write('</style></head><body>');
-            printWin.document.write('<h1>🗳️ RELATÓRIO ELEITORAL — ' + nomeCandidato + '</h1>');
-            printWin.document.write('<p>Gerado em: <strong>' + new Date().toLocaleString('pt-BR') + '</strong></p>');
+        function exportarRelatorio() {
+            var corPrimaria = getComputedStyle(document.documentElement).getPropertyValue('--cor-primaria').trim() || '#00ffcc';
+            var corSecundaria = getComputedStyle(document.documentElement).getPropertyValue('--cor-secundaria').trim() || '#00e676';
+            var nomeCandidato = getComputedStyle(document.documentElement).getPropertyValue('--nome-candidato').replace(/"/g,'').trim() || 'NÃO CONFIGURADO';
 
-            printWin.document.write('<h2>📊 RESUMO GERAL</h2>');
-            printWin.document.write('<table><tr><th>Indicador</th><th>Valor</th></tr>');
-            printWin.document.write('<tr><td>Total de locais de votação</td><td class="destaque">' + allMarkers.length + '</td></tr>');
-            printWin.document.write('<tr><td>Locais estáveis</td><td>' + stdCount + '</td></tr>');
-            printWin.document.write('<tr><td>Zonas voláteis</td><td>' + volCount + '</td></tr>');
-            printWin.document.write('<tr><td>Total de eleitores</td><td class="destaque">' + totalGeral.toLocaleString() + '</td></tr>');
-            printWin.document.write('</table>');
+            var unicos = buildUniqueMarkers();
+            var totalGeral = 0, volCount = 0, municipios = {};
+            unicos.forEach(function (m) {
+                var tt = getTooltipText(m);
+                var d = window.markerData[tt];
+                totalGeral += d.total;
+                if (d.is_volatil) volCount++;
+                var parsed = parseTooltip(tt);
+                municipios[parsed.municipio] = true;
+            });
+            var stdCount = unicos.length - volCount;
+            var qtdMunicipios = Object.keys(municipios).length;
 
-            if (raioContent) {
-                printWin.document.write('<h2>📐 RAIO DE INFLUÊNCIA</h2>');
-                printWin.document.write('<div class="info"><pre>' + raioContent + '</pre></div>');
-            }
-
-            printWin.document.write('<h2>📍 TOP 10 LOCAIS (MAIORES)</h2>');
-            printWin.document.write('<table><tr><th>#</th><th>Local</th><th>Município</th><th>Eleitores</th></tr>');
-            var sorted = allMarkers.slice().sort(function (a,b) {
-                var ta = getTooltipText(a), tb = getTooltipText(b);
-                var da = window.markerData && window.markerData[ta] ? window.markerData[ta].total : 0;
-                var db = window.markerData && window.markerData[tb] ? window.markerData[tb].total : 0;
+            var top10Html = '';
+            var sorted = unicos.slice().sort(function (a, b) {
+                var da = window.markerData[getTooltipText(a)].total;
+                var db = window.markerData[getTooltipText(b)].total;
                 return db - da;
             });
-            sorted.slice(0,10).forEach(function (m,i) {
+            sorted.slice(0, 10).forEach(function (m, i) {
                 var tt = getTooltipText(m);
-                var parts = tt.split(' (');
-                var local = parts[0] || tt;
-                var muni = parts[1] ? parts[1].replace(')','') : '';
-                var total = window.markerData && window.markerData[tt] ? window.markerData[tt].total : 0;
-                printWin.document.write('<tr><td>' + (i+1) + '</td><td>' + local + '</td><td>' + muni + '</td><td class="destaque">' + total.toLocaleString() + '</td></tr>');
+                var p = parseTooltip(tt);
+                var total = window.markerData[tt].total;
+                top10Html += '<tr><td>' + (i + 1) + '</td><td>' + p.local + '</td><td>' + p.municipio + '</td><td class="destaque">' + total.toLocaleString() + '</td></tr>';
             });
-            printWin.document.write('</table>');
 
-            printWin.document.write('<p style="margin-top:40px;font-size:11px;color:#999;">MapsTSE — Sistema de Inteligência Eleitoral</p>');
-            printWin.document.write('</body></html>');
-            printWin.document.close();
+            var raioHtml = '';
+            if (raioCircle && raioInfo.style.display === 'block') {
+                var centro = raioCircle.getLatLng();
+                var raioM = parseInt(raioSelect.value, 10);
+                var locaisDentro = [], seenR = {};
+                allMarkers.forEach(function (m) {
+                    var d = m.getLatLng().distanceTo(centro);
+                    if (d <= raioM) {
+                        var tt = getTooltipText(m);
+                        if (!seenR[tt] && window.markerData && window.markerData[tt]) {
+                            seenR[tt] = true;
+                            locaisDentro.push(m);
+                        }
+                    }
+                });
+                var votosRaio = 0;
+                locaisDentro.forEach(function (m) {
+                    votosRaio += window.markerData[getTooltipText(m)].total;
+                });
+                raioHtml =
+                    '<h2 style="color:' + corPrimaria + ';margin-top:30px;">📐 RAIO DE INFLUÊNCIA</h2>' +
+                    '<table><tr><th>Indicador</th><th>Valor</th></tr>' +
+                    '<tr><td>Raio configurado</td><td class="destaque">' + raioM + ' m</td></tr>' +
+                    '<tr><td>Locais de votação</td><td class="destaque">' + locaisDentro.length + '</td></tr>' +
+                    '<tr><td>Total de eleitores</td><td class="destaque">' + votosRaio.toLocaleString() + '</td></tr></table>';
+            }
+
+            var css = '' +
+                'body{font-family:Segoe UI,Arial,sans-serif;padding:50px 60px;color:#222;max-width:900px;margin:0 auto;}' +
+                '.header{text-align:center;padding-bottom:20px;border-bottom:3px solid ' + corPrimaria + ';margin-bottom:30px;}' +
+                '.header h1{color:' + corPrimaria + ';margin:0 0 5px 0;font-size:26px;letter-spacing:1px;}' +
+                '.header p{margin:0;color:#888;font-size:13px;}' +
+                'h2{color:' + corSecundaria + ';font-size:18px;margin-top:35px;margin-bottom:10px;}' +
+                'table{width:100%;border-collapse:collapse;margin:10px 0 20px 0;font-size:14px;}' +
+                'th{background:' + corPrimaria + ';color:#000;padding:10px 14px;text-align:left;font-weight:700;}' +
+                'td{border:1px solid #ddd;padding:9px 14px;}' +
+                'tr:nth-child(even){background:#f8f8f8;}' +
+                '.destaque{font-weight:700;color:' + corPrimaria + ';}' +
+                '.footer{text-align:center;margin-top:50px;padding-top:15px;border-top:1px solid #ddd;font-size:11px;color:#aaa;}' +
+                '@media print{body{padding:30px 40px;}}';
+
+            var printWin = window.open('', '_blank', 'width=900,height=700');
+            var doc = printWin.document;
+            doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Eleitoral — ' + nomeCandidato + '</title><style>' + css + '</style></head><body>');
+            doc.write('<div class="header"><h1>🗳️ RELATÓRIO ELEITORAL</h1><p>' + nomeCandidato + ' — Gerado em ' + new Date().toLocaleString('pt-BR') + '</p></div>');
+            doc.write('<h2>📊 RESUMO GERAL</h2>');
+            doc.write('<table><tr><th style="width:60%;">Indicador</th><th>Valor</th></tr>');
+            doc.write('<tr><td>Total de locais de votação</td><td class="destaque">' + unicos.length + '</td></tr>');
+            doc.write('<tr><td>Locais estáveis</td><td>' + stdCount + '</td></tr>');
+            doc.write('<tr><td>Zonas voláteis</td><td><span style="color:#e74c3c;font-weight:700;">' + volCount + '</span></td></tr>');
+            doc.write('<tr><td>Municípios abrangidos</td><td>' + qtdMunicipios + '</td></tr>');
+            doc.write('<tr><td>Total de eleitores</td><td class="destaque">' + totalGeral.toLocaleString() + '</td></tr>');
+            doc.write('</table>');
+            if (raioHtml) doc.write(raioHtml);
+            doc.write('<h2>📍 TOP 10 LOCAIS (MAIORES)</h2>');
+            doc.write('<table><tr><th style="width:40px;">#</th><th>Local</th><th>Município</th><th style="width:100px;">Eleitores</th></tr>');
+            doc.write(top10Html);
+            doc.write('</table>');
+            doc.write('<div class="footer">MapsTSE — Sistema de Inteligência Eleitoral</div>');
+            doc.write('</body></html>');
+            doc.close();
             printWin.print();
         }
         if (btnExportar) {
