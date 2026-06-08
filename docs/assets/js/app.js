@@ -177,11 +177,15 @@
                     weight: 2,
                 }).addTo(mapInstance);
 
-                var dentro = [];
+                var dentro = [], seen = {};
                 allMarkers.forEach(function (m) {
                     var d = m.getLatLng().distanceTo(center);
                     if (d <= radius) {
-                        dentro.push(m);
+                        var tt = getTooltipText(m);
+                        if (!seen[tt]) {
+                            seen[tt] = true;
+                            dentro.push(m);
+                        }
                         m.setOpacity(1.0);
                     } else {
                         m.setOpacity(0.25);
