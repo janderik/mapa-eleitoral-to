@@ -1,32 +1,32 @@
-from config import ARQUIVO_SAIDA_MAPA
+from config import ARQUIVO_SAIDA_MAPA, NOME_CANDIDATO, COR_PRIMARIA
 from data_processor import ler_cache, processar_perfil, processar_votacao, mergedf
 from map_builder import criar_mapa
 
 
 def gerar_overlay_login() -> str:
-    return """<div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; margin: 0;">
-    <h2 style="color: #00ffcc; margin-bottom: 5px; text-transform: uppercase;">Painel de Intelig\u00eancia</h2>
+    return f"""<div id="login-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; margin: 0;">
+    <h2 style="color: {COR_PRIMARIA}; margin-bottom: 5px; text-transform: uppercase;">{NOME_CANDIDATO}</h2>
     <p style="color: #aaa; margin-bottom: 25px; font-size: 14px;">Acesso Restrito - Autentica\u00e7\u00e3o Necess\u00e1ria</p>
     <input type="password" id="senha-input" placeholder="Digite a Chave" style="padding: 12px; font-size: 16px; border: 1px solid #333; border-radius: 5px; margin-bottom: 15px; width: 280px; text-align: center; background: #222; color: #fff; outline: none;">
-    <button onclick="verificarSenha()" style="padding: 12px 20px; font-size: 16px; background-color: #00ffcc; color: #000; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 280px; transition: 0.3s;">AUTENTICAR</button>
+    <button onclick="verificarSenha()" style="padding: 12px 20px; font-size: 16px; background-color: {COR_PRIMARIA}; color: #000; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 280px; transition: 0.3s;">AUTENTICAR</button>
     <p id="erro-msg" style="color: #ff4444; margin-top: 20px; display: none; font-weight: bold;">\u26a0 Chave incorreta.</p>
 </div>
 <script>
-function verificarSenha() {
+function verificarSenha() {{
     var input = document.getElementById('senha-input').value;
-    if (btoa(input) === 'QUNFU1NPMjAyNg==') {
+    if (btoa(input) === 'QUNFU1NPMjAyNg==') {{
         var overlay = document.getElementById('login-overlay');
         overlay.style.opacity = '0';
-        setTimeout(function() { overlay.style.display = 'none'; }, 500);
-    } else {
+        setTimeout(function() {{ overlay.style.display = 'none'; }}, 500);
+    }} else {{
         document.getElementById('erro-msg').style.display = 'block';
         document.getElementById('senha-input').value = '';
         document.getElementById('senha-input').focus();
-    }
-}
-document.getElementById('senha-input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') { verificarSenha(); }
-});
+    }}
+}}
+document.getElementById('senha-input').addEventListener('keypress', function (e) {{
+    if (e.key === 'Enter') {{ verificarSenha(); }}
+}});
 </script>"""
 
 

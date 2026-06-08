@@ -4,7 +4,7 @@ import folium
 from folium import Html, Popup, Element
 from folium.plugins import HeatMap
 
-from config import COORDENADAS_CENTRO, ZOOM_INICIAL
+from config import COORDENADAS_CENTRO, ZOOM_INICIAL, COR_PRIMARIA, COR_SECUNDARIA, NOME_CANDIDATO
 from html_components import gerar_painel_top10
 from data_processor import colunas_genero
 
@@ -78,6 +78,7 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
     generos = colunas_genero(df)
     fg_standard = folium.FeatureGroup(name="Locais Estáveis")
     fg_volatil = folium.FeatureGroup(name="Zonas Voláteis")
+    marker_data = {}
 
     for _, row in df.iterrows():
         vals = {g: row[g] for g in generos if pd.notna(row[g]) and row[g] > 0}
@@ -93,6 +94,12 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         )
         lat, lng = row["NR_LATITUDE"], row["NR_LONGITUDE"]
         tooltip_text = f"{row['NM_LOCAL_VOTACAO']} ({row['NM_MUNICIPIO']})"
+        marker_data[tooltip_text] = {
+            "total": int(row["TOTAL"]),
+            "lat": lat,
+            "lng": lng,
+            "is_volatil": bool(row.get("IS_VOLATIL")),
+        }
 
         folium.Marker(
             location=[lat, lng],
@@ -147,6 +154,16 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
     mapa.get_root().html.add_child(Element('<link rel="stylesheet" href="assets/css/style.css">'))
 
+    css_vars = f"""<style>
+:root {{
+    --cor-primaria: {COR_PRIMARIA};
+    --cor-secundaria: {COR_SECUNDARIA};
+    --nome-candidato: "{NOME_CANDIDATO}";
+    --logo-url: "";
+}}
+</style>"""
+    mapa.get_root().html.add_child(Element(css_vars))
+
     html_sidebar = f"""
     <button id="sidebar-toggle">⚙️ FILTROS</button>
     <div id="control-sidebar">
@@ -167,10 +184,26 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
             <input type="checkbox" id="vulnerability-filter" checked>
             <span>ZONAS DE ALTA VOLATILIDADE ({qtd_volateis})</span>
         </label>
+
+        <label class="section">📐 RAIO DE INFLUÊNCIA</label>
+        <div class="input-row">
+            <select id="raio-select" style="flex:1;padding:10px 14px;font-size:13px;border:1px solid #333;border-radius:6px;background:rgba(0,0,0,0.4);color:#fff;outline:none;box-sizing:border-box;">
+                <option value="500">500 m</option>
+                <option value="1000" selected>1 km</option>
+                <option value="2000">2 km</option>
+                <option value="5000">5 km</option>
+            </select>
+            <button id="btn-raio" title="Ativar/Desativar Raio">ATIVAR</button>
+        </div>
+        <div id="raio-info" style="display:none;padding:10px;background:#1e1e24;border:1px solid var(--cor-primaria,#00ffcc);border-radius:6px;color:#cfcfcf;font-size:12px;line-height:1.6;"></div>
+
+        <label class="section">📄 RELATÓRIO</label>
+        <button id="btn-exportar" style="width:100%;padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:1px;border:2px solid var(--cor-primaria,#00ffcc);border-radius:6px;background:transparent;color:var(--cor-primaria,#00ffcc);cursor:pointer;">EXPORTAR RELATÓRIO</button>
     </div>"""
 
     script_data = f"""<script>
 var cityCoords = {json.dumps(coords_muni)};
+var markerData = {json.dumps(marker_data)};
 var fgVolatilName = '{fg_volatil_var}';
 var fgStandardName = '{fg_standard_var}';
 </script>"""

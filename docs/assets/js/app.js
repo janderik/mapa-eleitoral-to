@@ -124,6 +124,170 @@
             });
         }
 
+        // ===== RAIO DE INFLUÊNCIA =====
+        var raioAtivo = false;
+        var raioCircle = null;
+        var btnRaio = document.getElementById('btn-raio');
+        var raioSelect = document.getElementById('raio-select');
+        var raioInfo = document.getElementById('raio-info');
+
+        function getTooltipText(marker) {
+            var tooltip = marker.getTooltip();
+            if (!tooltip) return '';
+            var content = tooltip.getContent();
+            if (typeof content === 'string') return content;
+            if (content && content.textContent) return content.textContent;
+            return '';
+        }
+
+        function limparRaio() {
+            if (raioCircle) {
+                mapInstance.removeLayer(raioCircle);
+                raioCircle = null;
+            }
+            raioInfo.style.display = 'none';
+            allMarkers.forEach(function (m) { m.setOpacity(1.0); });
+        }
+
+        function toggleRaio() {
+            raioAtivo = !raioAtivo;
+            btnRaio.textContent = raioAtivo ? 'DESATIVAR' : 'ATIVAR';
+            btnRaio.style.borderColor = raioAtivo ? 'var(--cor-primaria,#00ffcc)' : '#666';
+            if (!raioAtivo) limparRaio();
+        }
+
+        allMarkers.forEach(function (marker) {
+            marker.on('click', function () {
+                if (!raioAtivo) return;
+                limparRaio();
+
+                var center = marker.getLatLng();
+                var radius = parseInt(raioSelect.value, 10);
+
+                raioCircle = L.circle(center, {
+                    radius: radius,
+                    color: 'var(--cor-primaria,#00ffcc)',
+                    fillColor: 'var(--cor-primaria,#00ffcc)',
+                    fillOpacity: 0.12,
+                    weight: 2,
+                }).addTo(mapInstance);
+
+                var dentro = [];
+                allMarkers.forEach(function (m) {
+                    var d = m.getLatLng().distanceTo(center);
+                    if (d <= radius) {
+                        dentro.push(m);
+                        m.setOpacity(1.0);
+                    } else {
+                        m.setOpacity(0.25);
+                    }
+                });
+
+                var totalVotos = 0;
+                dentro.forEach(function (m) {
+                    var tt = getTooltipText(m);
+                    if (window.markerData && window.markerData[tt]) {
+                        totalVotos += window.markerData[tt].total;
+                    }
+                });
+
+                raioInfo.style.display = 'block';
+                raioInfo.innerHTML =
+                    '<strong style="color:var(--cor-primaria,#00ffcc);">📊 RAIO DE INFLUÊNCIA</strong><br>' +
+                    'Raio: <strong>' + radius + ' m</strong><br>' +
+                    'Locais de votação: <strong>' + dentro.length + '</strong><br>' +
+                    'Total de eleitores: <strong style="color:var(--cor-primaria,#00ffcc);">' + totalVotos.toLocaleString() + '</strong>';
+            });
+        });
+
+        if (btnRaio) {
+            btnRaio.addEventListener('click', toggleRaio);
+        }
+        if (raioSelect) {
+            raioSelect.addEventListener('change', function () {
+                if (raioAtivo && raioCircle) {
+                    raioCircle.setRadius(parseInt(raioSelect.value, 10));
+                }
+            });
+        }
+
+        // ===== EXPORTAR RELATÓRIO =====
+        var btnExportar = document.getElementById('btn-exportar');
+        function exportarRelatorio() {
+            var nomeCandidato = getComputedStyle(document.documentElement).getPropertyValue('--nome-candidato').replace(/"/g,'').trim() || 'NÃO CONFIGURADO';
+            var totalGeral = 0;
+            var stdCount = 0, volCount = 0;
+            allMarkers.forEach(function (m) {
+                var tt = getTooltipText(m);
+                if (window.markerData && window.markerData[tt]) {
+                    totalGeral += window.markerData[tt].total;
+                    if (window.markerData[tt].is_volatil) volCount++;
+                    else stdCount++;
+                }
+            });
+
+            var raioContent = '';
+            if (raioCircle && raioInfo.style.display === 'block') {
+                raioContent = raioInfo.innerHTML.replace(/<strong[^>]*>/g,'**').replace(/<\/strong>/g,'**').replace(/<br>/g,'\n');
+            }
+
+            var printWin = window.open('','_blank','width=800,height=600');
+            printWin.document.write('<!DOCTYPE html><html><head><title>Relatório Eleitoral</title>');
+            printWin.document.write('<style>');
+            printWin.document.write('body{font-family:Arial,sans-serif;padding:40px;color:#222;}');
+            printWin.document.write('h1{color:#00e676;border-bottom:2px solid #00e676;padding-bottom:10px;}');
+            printWin.document.write('h2{color:#333;margin-top:30px;}');
+            printWin.document.write('table{width:100%;border-collapse:collapse;margin:15px 0;}');
+            printWin.document.write('th,td{border:1px solid #ccc;padding:8px 12px;text-align:left;}');
+            printWin.document.write('th{background:#00e676;color:#fff;}');
+            printWin.document.write('.destaque{font-weight:700;color:#00e676;}');
+            printWin.document.write('.info{background:#f9f9f9;padding:15px;border-radius:6px;margin:15px 0;}');
+            printWin.document.write('.info pre{white-space:pre-wrap;font-family:inherit;margin:0;}');
+            printWin.document.write('@media print{body{padding:20px;}button{display:none;}}');
+            printWin.document.write('</style></head><body>');
+            printWin.document.write('<h1>🗳️ RELATÓRIO ELEITORAL — ' + nomeCandidato + '</h1>');
+            printWin.document.write('<p>Gerado em: <strong>' + new Date().toLocaleString('pt-BR') + '</strong></p>');
+
+            printWin.document.write('<h2>📊 RESUMO GERAL</h2>');
+            printWin.document.write('<table><tr><th>Indicador</th><th>Valor</th></tr>');
+            printWin.document.write('<tr><td>Total de locais de votação</td><td class="destaque">' + allMarkers.length + '</td></tr>');
+            printWin.document.write('<tr><td>Locais estáveis</td><td>' + stdCount + '</td></tr>');
+            printWin.document.write('<tr><td>Zonas voláteis</td><td>' + volCount + '</td></tr>');
+            printWin.document.write('<tr><td>Total de eleitores</td><td class="destaque">' + totalGeral.toLocaleString() + '</td></tr>');
+            printWin.document.write('</table>');
+
+            if (raioContent) {
+                printWin.document.write('<h2>📐 RAIO DE INFLUÊNCIA</h2>');
+                printWin.document.write('<div class="info"><pre>' + raioContent + '</pre></div>');
+            }
+
+            printWin.document.write('<h2>📍 TOP 10 LOCAIS (MAIORES)</h2>');
+            printWin.document.write('<table><tr><th>#</th><th>Local</th><th>Município</th><th>Eleitores</th></tr>');
+            var sorted = allMarkers.slice().sort(function (a,b) {
+                var ta = getTooltipText(a), tb = getTooltipText(b);
+                var da = window.markerData && window.markerData[ta] ? window.markerData[ta].total : 0;
+                var db = window.markerData && window.markerData[tb] ? window.markerData[tb].total : 0;
+                return db - da;
+            });
+            sorted.slice(0,10).forEach(function (m,i) {
+                var tt = getTooltipText(m);
+                var parts = tt.split(' (');
+                var local = parts[0] || tt;
+                var muni = parts[1] ? parts[1].replace(')','') : '';
+                var total = window.markerData && window.markerData[tt] ? window.markerData[tt].total : 0;
+                printWin.document.write('<tr><td>' + (i+1) + '</td><td>' + local + '</td><td>' + muni + '</td><td class="destaque">' + total.toLocaleString() + '</td></tr>');
+            });
+            printWin.document.write('</table>');
+
+            printWin.document.write('<p style="margin-top:40px;font-size:11px;color:#999;">MapsTSE — Sistema de Inteligência Eleitoral</p>');
+            printWin.document.write('</body></html>');
+            printWin.document.close();
+            printWin.print();
+        }
+        if (btnExportar) {
+            btnExportar.addEventListener('click', exportarRelatorio);
+        }
+
         // ===== TOP 10 TOGGLE =====
         window.toggleTop10 = function () {
             var body = document.getElementById('top10-body');
