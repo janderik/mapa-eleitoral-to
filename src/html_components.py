@@ -137,50 +137,16 @@ def gerar_painel_top10(df, map_var: str) -> str:
             <td style="text-align:right;padding:4px 8px;font-family:'Consolas',monospace;color:#00e676;white-space:nowrap;">{pct:.1f}%</td>
         </tr>"""
 
-    painel_id = "top10-panel"
-    body_id = "top10-body"
-    toggle_id = "top10-toggle"
-
     return f"""
-    <style>
-        #{painel_id} {{
-            position:absolute; top:12px; left:12px; z-index:9999;
-            background:rgba(18,18,24,0.92);
-            border:1px solid #2a2a3a; border-radius:10px;
-            padding:14px 16px;
-            font-family:'Segoe UI',Arial,sans-serif;
-            color:#cfcfcf;
-            max-height:85vh; overflow-y:auto;
-            box-shadow:0 4px 24px rgba(0,0,0,0.6);
-            min-width:320px;
-            transition: all 0.3s ease;
-        }}
-        #{toggle_id} {{
-            background:none; border:none; color:#00e676;
-            font-size:18px; cursor:pointer; padding:0 4px;
-            line-height:1; transition:transform 0.3s;
-        }}
-        #{toggle_id}:hover {{ transform:scale(1.2); }}
-        @media (max-width: 768px) {{
-            #{painel_id} {{
-                min-width:auto; width:90vw; left:5vw; top:auto;
-                bottom:10px; padding:10px 12px;
-                font-size:11px;
-                max-height:50vh;
-            }}
-            #{painel_id} table {{ font-size:10px !important; }}
-            #{painel_id} th, #{painel_id} td {{ padding:2px 4px !important; }}
-        }}
-    </style>
-    <div id="{painel_id}">
+    <div id="top10-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;
             font-size:14px; font-weight:700; color:#00e676; text-align:center;
             margin-bottom:8px; padding-bottom:8px;
             border-bottom:2px solid #00e676; letter-spacing:0.5px;">
             <span>TOP 10 COLÉGIOS ELEITORAIS - TO</span>
-            <button id="{toggle_id}" onclick="toggleTop10()">−</button>
+            <button id="top10-toggle" onclick="toggleTop10()">−</button>
         </div>
-        <div id="{body_id}">
+        <div id="top10-body">
             <div style="text-align:center;font-size:11px;color:#888;margin-bottom:10px;">
                 Total do estado: <span style="color:#fff;font-weight:600;">{total_geral_to:,}</span> eleitores
             </div>
@@ -196,23 +162,4 @@ def gerar_painel_top10(df, map_var: str) -> str:
                 <tbody>{linhas_tabela}</tbody>
             </table>
         </div>
-    </div>
-    <script>
-    function toggleTop10() {{
-        var body = document.getElementById('{body_id}');
-        var btn = document.getElementById('{toggle_id}');
-        if (body.style.display === 'none') {{
-            body.style.display = '';
-            btn.textContent = '−';
-        }} else {{
-            body.style.display = 'none';
-            btn.textContent = '+';
-        }}
-    }}
-    if (window.innerWidth <= 768) {{
-        var body = document.getElementById('{body_id}');
-        var btn = document.getElementById('{toggle_id}');
-        if (body) {{ body.style.display = 'none'; }}
-        if (btn) {{ btn.textContent = '+'; }}
-    }}
-    </script>"""
+    </div>"""

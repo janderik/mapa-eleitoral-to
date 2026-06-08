@@ -139,144 +139,12 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
     opts = "".join(f'<option value="{n}">' for n in sorted(coords_muni))
 
-    cand_opts = ""
-    if candidatos_list:
-        cand_opts = "".join(f'<option value="{c}">' for c in candidatos_list)
-
-    locais_candidatos = {}
-    volatile_lookup = {}
-    for _, row in df.iterrows():
-        chave = f"{row['NM_MUNICIPIO']}|{row['NM_LOCAL_VOTACAO']}"
-        locais_candidatos[chave] = json.loads(row.get("CANDIDATOS_LIST", "[]"))
-        volatile_lookup[chave] = bool(row.get("IS_VOLATIL"))
-
     qtd_volateis = int(df['IS_VOLATIL'].sum())
 
-    html_estilo = """
-    <style>
-    body, html { overflow-x: hidden !important; width: 100%; height: 100%; margin: 0; padding: 0; }
-    .leaflet-popup-content-wrapper {
-        background: #121218 !important;
-        color: #ffffff !important;
-        border: 1px solid #333 !important;
-        border-radius: 8px !important;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.8) !important;
-    }
-    .leaflet-popup-tip {
-        background: #121218 !important;
-    }
-    .leaflet-container a.leaflet-popup-close-button {
-        color: #00ffcc !important;
-        font-weight: bold !important;
-    }
-    @keyframes pulso-sombra {
-        0%, 100% { box-shadow: 0 0 4px 2px rgba(255, 0, 0, 0.6); }
-        50% { box-shadow: 0 0 8px 4px rgba(255, 0, 0, 0.3); }
-    }
-    .marcador-batalha {
-        width: 20px;
-        height: 20px;
-        background-color: #ff0000 !important;
-        border: 3px solid #ffffff;
-        border-radius: 50%;
-        box-shadow: 0px 0px 8px rgba(0,0,0,0.8);
-        opacity: 1.0 !important;
-        animation: pulso-sombra 2s infinite;
-    }
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #1a1a24;
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #444;
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #00ffcc;
-    }
-    * {
-        scrollbar-width: thin;
-        scrollbar-color: #444 #1a1a24;
-    }
-    </style>
-    """
-    mapa.get_root().html.add_child(Element(html_estilo))
+    mapa.get_root().html.add_child(Element('<link rel="stylesheet" href="assets/css/style.css">'))
 
     html_sidebar = f"""
-    <style>
-        #sidebar-toggle {{
-            position:absolute; left:10px; bottom:10px; z-index:1000;
-            background:rgba(0,0,0,0.6); color:#00ffcc;
-            border:1px solid #00ffcc; backdrop-filter:blur(10px);
-            padding:10px 14px; border-radius:5px; cursor:pointer;
-            font-size:13px; font-weight:600; letter-spacing:0.5px;
-            transition:all .3s ease;
-        }}
-        #sidebar-toggle:hover {{ background:rgba(0,255,204,0.15); }}
-        #control-sidebar {{
-            position:fixed; right:0; top:0; bottom:0; width:300px;
-            background:rgba(18,18,24,0.97);
-            border-left:1px solid #333; z-index:1000;
-            padding:20px; overflow-y:auto;
-            transform:translateX(100%);
-            transition:transform 0.3s ease;
-            font-family:'Segoe UI',Arial,sans-serif;
-            box-shadow:-4px 0 24px rgba(0,0,0,0.5);
-            display:flex; flex-direction:column; gap:14px;
-        }}
-        #control-sidebar.open {{ transform:translateX(0); }}
-        #control-sidebar h2 {{
-            color:#00ffcc; font-size:14px; font-weight:700; letter-spacing:1px;
-            margin:0; padding-bottom:12px; border-bottom:2px solid #00ffcc;
-            text-align:center;
-        }}
-        #control-sidebar label.section {{
-            color:#888; font-size:10px; font-weight:600; letter-spacing:1.5px;
-            margin-bottom:2px; text-transform:uppercase;
-        }}
-        #control-sidebar input[type="text"] {{
-            width:100%; padding:10px 14px; font-size:13px;
-            border:1px solid #333; border-radius:6px;
-            background:rgba(0,0,0,0.4); color:#fff;
-            outline:none; box-sizing:border-box;
-            transition:border-color .2s;
-        }}
-        #control-sidebar input[type="text"]:focus {{
-            border-color:#00ffcc;
-        }}
-        #control-sidebar .input-row {{
-            display:flex; gap:4px;
-        }}
-        #control-sidebar .input-row button {{
-            padding:10px 12px; font-size:12px;
-            border:1px solid #666; border-radius:6px;
-            background:rgba(0,0,0,0.4); color:#ccc;
-            cursor:pointer; font-weight:bold; white-space:nowrap;
-            transition:all .2s;
-        }}
-        #control-sidebar .input-row button:hover {{
-            background:rgba(255,255,255,0.1);
-        }}
-        #control-sidebar .volatile-toggle {{
-            display:flex; align-items:center; gap:10px;
-            padding:12px; border:1px solid #ff3333; border-radius:6px;
-            background:rgba(255,51,51,0.08);
-            cursor:pointer; transition:all .3s;
-            font-size:12px; font-weight:600; color:#ff4d4d; user-select:none;
-        }}
-        #control-sidebar .volatile-toggle:has(input:checked) {{
-            background:rgba(255,51,51,0.25);
-            border-color:#ff0000; color:#fff;
-        }}
-        #control-sidebar .volatile-toggle input {{
-            width:16px; height:16px; accent-color:#ff0000; cursor:pointer; flex-shrink:0;
-        }}
-    </style>
-    <button id="sidebar-toggle" onclick="toggleSidebar()">⚙️ FILTROS</button>
+    <button id="sidebar-toggle">⚙️ FILTROS</button>
     <div id="control-sidebar">
         <h2>INTELIGÊNCIA TÁTICA</h2>
 
@@ -286,10 +154,9 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
 
         <label class="section">🔎 CANDIDATO</label>
         <div class="input-row">
-            <input type="text" id="search-candidate" list="candidate-list" placeholder="Filtrar por candidato..." style="flex:1;">
-            <button id="clear-filter" title="Limpar filtro">✕</button>
+            <input type="text" id="input-candidato" placeholder="Filtrar por candidato..." style="flex:1;">
+            <button id="btn-limpar-candidato" title="Limpar filtro">✕</button>
         </div>
-        <datalist id="candidate-list">{cand_opts}</datalist>
 
         <label class="section">⚡ ZONA DE RISCO</label>
         <label class="volatile-toggle" id="volatile-toggle-label">
@@ -298,131 +165,15 @@ def criar_mapa(df: pd.DataFrame, candidatos_list: list = None) -> folium.Map:
         </label>
     </div>"""
 
-    script_sidebar = f"""
+    script_data = f"""<script>
 var cityCoords = {json.dumps(coords_muni)};
-var locationCandidates = {json.dumps(locais_candidatos)};
-var volatileLookup = {json.dumps(volatile_lookup)};
 var fgVolatilName = '{fg_volatil_var}';
 var fgStandardName = '{fg_standard_var}';
-
-function toggleSidebar() {{
-    var sb = document.getElementById('control-sidebar');
-    var btn = document.getElementById('sidebar-toggle');
-    sb.classList.toggle('open');
-    btn.textContent = sb.classList.contains('open') ? '✕ FECHAR' : '⚙️ FILTROS';
-}}
-
-document.addEventListener('click', function(e) {{
-    var sb = document.getElementById('control-sidebar');
-    var btn = document.getElementById('sidebar-toggle');
-    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {{
-        sb.classList.remove('open');
-        btn.textContent = '⚙️ FILTROS';
-    }}
-}});
-
-function getLocKeyFromLayer(layer) {{
-    var tooltip = layer.getTooltip();
-    if (!tooltip) return '';
-    var content = tooltip.getContent();
-    var idx = content.lastIndexOf(' (');
-    if (idx === -1) return '';
-    var locName = content.substring(0, idx);
-    var muniName = content.substring(idx + 2, content.length - 1);
-    return muniName + '|' + locName;
-}}
-
-document.getElementById('search-city').addEventListener('change', function(e) {{
-    var cityName = e.target.value.toUpperCase().trim();
-    if (cityCoords[cityName]) {{
-        var leafletMap = window['{map_var}'];
-        if (leafletMap) {{
-            leafletMap.flyTo(cityCoords[cityName], 13, {{ animate: true, duration: 1.5 }});
-        }}
-    }}
-}});
-
-function highlightCandidate(candidateName) {{
-    var fgStd = window[fgStandardName];
-    if (!fgStd) return;
-    var q = candidateName.toUpperCase().trim();
-    var anyMatch = false;
-    fgStd.eachLayer(function(layer) {{
-        if (!layer.getLatLng || !layer.setIcon) return;
-        var key = getLocKeyFromLayer(layer);
-        if (!key) return;
-        var hasCandidate = locationCandidates[key] && locationCandidates[key].some(function(c) {{ return c.toUpperCase() === q; }});
-        if (hasCandidate) {{
-            anyMatch = true;
-            layer.setOpacity(1.0);
-            layer.setIcon(L.icon({{
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            }}));
-        }} else {{
-            layer.setOpacity(0.1);
-        }}
-    }});
-    if (!anyMatch) {{
-        resetFilter();
-        document.getElementById('search-candidate').value = '';
-        alert('Nenhum local encontrado com votações para este candidato.');
-    }}
-}}
-
-function resetFilter() {{
-    var fgStd = window[fgStandardName];
-    if (!fgStd) return;
-    fgStd.eachLayer(function(layer) {{
-        if (!layer.getLatLng || !layer.setIcon) return;
-        layer.setOpacity(1.0);
-        var key = getLocKeyFromLayer(layer);
-        layer.setIcon(L.icon({{
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        }}));
-    }});
-    document.getElementById('search-candidate').value = '';
-}}
-
-document.getElementById('search-candidate').addEventListener('change', function(e) {{
-    if (e.target.value.trim()) {{
-        highlightCandidate(e.target.value);
-    }}
-}});
-
-document.getElementById('clear-filter').addEventListener('click', function() {{
-    resetFilter();
-}});
-
-document.getElementById('search-candidate').addEventListener('keypress', function(e) {{
-    if (e.key === 'Enter' && e.target.value.trim()) {{
-        highlightCandidate(e.target.value);
-    }}
-}});
-
-document.getElementById('vulnerability-filter').addEventListener('change', function(e) {{
-    var leafletMap = window['{map_var}'];
-    var fg = window[fgVolatilName];
-    if (!leafletMap || !fg) return;
-    if (e.target.checked) {{
-        leafletMap.addLayer(fg);
-    }} else {{
-        leafletMap.removeLayer(fg);
-    }}
-}});
-"""
+</script>"""
 
     mapa.get_root().html.add_child(Element(html_sidebar))
-    mapa.get_root().script.add_child(Element(script_sidebar))
+    mapa.get_root().html.add_child(Element(script_data))
+    mapa.get_root().html.add_child(Element('<script src="assets/js/app.js"></script>'))
 
     print(f"  -> {len(df)} marcadores adicionados")
     return mapa
